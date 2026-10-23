@@ -1,0 +1,3149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>КУРОВОЗ — доставка куриц под контролем</title>
+<meta name="description" content="КУРОВОЗ — рабочая станция для заказа, перевозки и приёмки куриц: клиент, перевозчик и чистка (цех) в одном окне.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230B0D0E'/%3E%3Cpath d='M6 22h20M8 22V12l8-6 8 6v10' stroke='%23FFB000' stroke-width='2.4' fill='none'/%3E%3Ccircle cx='16' cy='15' r='2.4' fill='%23FFB000'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   КУРОВОЗ — Night Dispatch
+   tokens
+   ============================================================ */
+:root{
+  --canvas:#0B0D0E;
+  --surface-1:#111516;
+  --surface-2:#171D1E;
+  --surface-3:#20292A;
+  --ink:#F2EDE3;
+  --ink-muted:#9AA5A1;
+  --ink-faint:#66726F;
+  --border:#2C3737;
+  --border-active:#697873;
+  --voltage:#FFB000;
+  --voltage-soft:#3A2A08;
+  --voltage-hover:#FFC23D;
+  --success:#59C98A;
+  --success-soft:#173226;
+  --danger:#FF6B5F;
+  --danger-soft:#42211F;
+  --on-voltage:#0B0D0E;
+  --delivery:#4EA1D3;
+
+  --font-display:"Barlow Condensed", "Inter", system-ui, sans-serif;
+  --font-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --rail-w:240px;
+  --util-h:72px;
+  --gutter:32px;
+  --ease-out:cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-stamp:cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  background:var(--canvas);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.45;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--voltage);color:var(--on-voltage);}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;}
+input,select,textarea{font-family:inherit;color:inherit;}
+img,svg{display:block;}
+ul{margin:0;padding:0;list-style:none;}
+h1,h2,h3,h4,p{margin:0;}
+:focus-visible{outline:2px solid var(--voltage);outline-offset:2px;}
+
+/* ---------- type ---------- */
+.t-display{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(42px, 5.2vw, 72px);
+  line-height:0.93;
+  letter-spacing:0.01em;
+  text-transform:uppercase;
+}
+.t-display-sm{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(34px, 3.4vw, 48px);
+  line-height:0.95;
+  letter-spacing:0.01em;
+  text-transform:uppercase;
+}
+.t-heading{font-weight:700;font-size:22px;line-height:1.1;letter-spacing:0.01em;}
+.t-heading-sm{font-weight:700;font-size:17px;line-height:1.2;}
+.t-label{
+  font-size:11px;font-weight:700;line-height:1.2;
+  text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-muted);
+}
+.t-label-amber{color:var(--voltage);}
+.t-body{font-size:15px;line-height:1.45;color:var(--ink-muted);}
+.t-strong{font-size:15px;font-weight:600;line-height:1.35;}
+.t-data{font-family:var(--font-data);font-weight:500;font-variant-numeric:tabular-nums;}
+.t-data-lg{font-family:var(--font-data);font-weight:600;font-variant-numeric:tabular-nums;font-size:18px;line-height:1.2;}
+.t-metric{
+  font-family:var(--font-data);font-weight:600;font-variant-numeric:tabular-nums;
+  font-size:clamp(48px, 5vw, 68px);line-height:0.95;letter-spacing:-0.02em;
+}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  height:52px;padding:0 24px;border-radius:8px;
+  font-size:15px;font-weight:600;line-height:1;
+  transition:background 150ms ease, border-color 150ms ease, transform 120ms ease, color 150ms ease;
+  min-width:44px;
+}
+.btn:active{transform:translateY(1px);transition-duration:80ms;}
+.btn-primary{background:var(--voltage);color:var(--on-voltage);}
+.btn-primary:hover{background:var(--voltage-hover);}
+.btn-secondary{height:48px;border:1px solid var(--border-active);color:var(--ink);background:transparent;}
+.btn-secondary:hover{background:var(--surface-2);}
+.btn-danger{height:48px;border:1px solid var(--danger);color:var(--danger);background:transparent;}
+.btn-danger:hover{background:var(--danger-soft);}
+.btn-ghost{height:44px;padding:0 12px;color:var(--ink-muted);border-radius:8px;}
+.btn-ghost:hover{color:var(--ink);background:var(--surface-2);}
+.btn-block{width:100%;}
+.btn svg{flex:none;}
+.btn-accept-zone{
+  width:100%;min-height:56px;background:var(--voltage);color:var(--on-voltage);
+  border-radius:8px;font-size:15px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:background 150ms ease, transform 120ms ease;
+}
+.btn-accept-zone:hover{background:var(--voltage-hover);}
+.btn-accept-zone:active{transform:translateY(1px);}
+.btn:disabled,.btn-accept-zone:disabled{opacity:0.45;cursor:not-allowed;}
+.btn-link{
+  color:var(--voltage);font-size:13px;font-weight:600;
+  border-bottom:1px solid transparent;padding-bottom:1px;
+}
+.btn-link:hover{border-bottom-color:var(--voltage);}
+
+/* ---------- badges ---------- */
+.badge{
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;
+  border-radius:6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.badge-new{background:var(--voltage-soft);color:var(--voltage);}
+.badge-ok{background:var(--success-soft);color:var(--success);}
+.badge-alert{background:var(--danger-soft);color:var(--danger);}
+.badge-muted{background:var(--surface-3);color:var(--ink-muted);}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
+
+/* ---------- form ---------- */
+.field{display:flex;flex-direction:column;gap:8px;}
+.field .hint{font-size:12px;color:var(--ink-faint);line-height:1.35;}
+.field .err{font-size:12px;color:var(--danger);line-height:1.35;min-height:0;}
+.input, .select, .textarea{
+  height:48px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;
+  padding:0 14px;font-size:15px;color:var(--ink);width:100%;
+  transition:border-color 150ms ease, box-shadow 150ms ease;
+}
+.textarea{height:auto;min-height:88px;padding:12px 14px;resize:vertical;line-height:1.45;}
+.input::placeholder,.textarea::placeholder{color:var(--ink-faint);}
+.input:focus,.select:focus,.textarea:focus{
+  outline:none;border-color:var(--voltage);box-shadow:0 0 0 2px rgba(255,176,0,0.35);
+}
+.input[readonly]{color:var(--ink-muted);background:var(--surface-2);}
+.input-num{font-family:var(--font-data);font-variant-numeric:tabular-nums;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.field-group{display:flex;flex-direction:column;gap:20px;}
+.suffix-wrap{position:relative;}
+.suffix-wrap .suffix{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  font-family:var(--font-data);font-size:14px;color:var(--ink-muted);pointer-events:none;
+}
+.suffix-wrap .input{padding-right:38px;}
+
+/* ---------- surfaces ---------- */
+.panel{background:var(--surface-1);border:1px solid var(--border);padding:24px;}
+.panel-flush{padding:0;}
+.card{background:var(--surface-1);border:1px solid var(--border);padding:20px;transition:border-color 150ms ease;}
+.card:hover{border-color:var(--border-active);}
+.card.is-selected{border-left:3px solid var(--voltage);}
+.divider{height:1px;background:var(--border);border:0;margin:0;}
+
+/* ============================================================
+   ENTRY (registration / login)
+   ============================================================ */
+.entry{min-height:100vh;display:flex;flex-direction:column;}
+.entry-bar{
+  height:var(--util-h);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 var(--gutter);flex:none;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-mark{
+  width:34px;height:34px;border:1px solid var(--voltage);display:flex;align-items:center;justify-content:center;flex:none;
+}
+.brand-name{
+  font-family:var(--font-display);font-weight:700;font-size:26px;letter-spacing:0.04em;line-height:1;
+  text-transform:uppercase;
+}
+.brand-name em{font-style:normal;color:var(--voltage);}
+.entry-main{
+  flex:1;display:grid;grid-template-columns:5fr 7fr;
+  max-width:1440px;width:100%;margin:0 auto;
+}
+.entry-copy{
+  padding:48px var(--gutter) 48px var(--gutter);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;gap:32px;
+}
+.entry-map-wrap{
+  padding:24px var(--gutter) 24px 24px;display:flex;flex-direction:column;gap:16px;min-width:0;
+}
+.entry-role-marks{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--border);}
+.role-mark{
+  display:flex;gap:16px;align-items:flex-start;padding:16px 0;border-bottom:1px solid var(--border);
+}
+.role-mark .rm-icon{
+  width:40px;height:40px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  color:var(--voltage);flex:none;
+}
+.role-mark h3{font-size:15px;font-weight:700;margin-bottom:2px;}
+.entry-actions{display:flex;flex-direction:column;gap:16px;align-items:flex-start;}
+
+/* stepper */
+.stepper{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.step{
+  display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;
+  letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);
+}
+.step .sn{
+  width:22px;height:22px;border-radius:50%;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-data);font-size:11px;
+}
+.step.is-active{color:var(--voltage);}
+.step.is-active .sn{border-color:var(--voltage);background:var(--voltage-soft);}
+.step.is-done{color:var(--success);}
+.step.is-done .sn{border-color:var(--success);background:var(--success-soft);}
+.step-sep{width:18px;height:1px;background:var(--border);flex:none;}
+
+.reg-card{background:var(--surface-1);border:1px solid var(--border);padding:24px;display:flex;flex-direction:column;gap:20px;}
+.code-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.mock-code{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 12px;
+  background:var(--voltage-soft);color:var(--voltage);border:1px solid rgba(255,176,0,0.35);
+  font-family:var(--font-data);font-size:14px;font-weight:600;
+}
+.role-select-list{display:flex;flex-direction:column;gap:12px;}
+.role-option{
+  display:flex;gap:16px;align-items:flex-start;text-align:left;width:100%;
+  padding:16px;border:1px solid var(--border);background:var(--surface-1);
+  transition:border-color 150ms ease, background 150ms ease;
+}
+.role-option:hover{border-color:var(--border-active);background:var(--surface-2);}
+.role-option.is-on{border-color:var(--voltage);background:var(--voltage-soft);}
+.role-option .ro-icon{
+  width:44px;height:44px;border:1px solid var(--border);color:var(--voltage);
+  display:flex;align-items:center;justify-content:center;flex:none;
+}
+.role-option.is-on .ro-icon{border-color:var(--voltage);}
+.role-option .ro-title{font-weight:700;font-size:15px;}
+.role-option .ro-desc{font-size:13px;color:var(--ink-muted);margin-top:2px;}
+
+/* ============================================================
+   SHELL (app)
+   ============================================================ */
+.shell{min-height:100vh;}
+.rail{
+  position:fixed;left:0;top:0;bottom:0;width:var(--rail-w);
+  background:var(--surface-1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:24px;z-index:40;
+}
+.rail-role{
+  margin-top:24px;padding:12px;border:1px solid var(--border);background:var(--canvas);
+  display:flex;flex-direction:column;gap:6px;
+}
+.rail-role .rr-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.rail-nav{margin-top:32px;display:flex;flex-direction:column;gap:4px;flex:1;}
+.nav-item{
+  display:flex;align-items:center;gap:12px;height:48px;padding:0 12px;
+  font-size:13px;font-weight:600;color:var(--ink-muted);border-left:3px solid transparent;
+  transition:color 150ms ease, background 150ms ease, border-color 150ms ease;
+  width:100%;text-align:left;
+}
+.nav-item:hover{color:var(--ink);background:var(--surface-2);}
+.nav-item.is-active{color:var(--ink);border-left-color:var(--voltage);background:var(--surface-2);}
+.nav-item.is-active svg{color:var(--voltage);}
+.nav-item .nav-dot{width:6px;height:6px;border-radius:50%;background:var(--voltage);margin-left:auto;}
+.rail-foot{display:flex;flex-direction:column;gap:8px;}
+.role-switch{
+  display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--border);background:var(--canvas);
+}
+.role-switch .rs-btn{
+  display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;font-size:12px;font-weight:600;
+  color:var(--ink-muted);text-align:left;
+}
+.role-switch .rs-btn:hover{background:var(--surface-2);color:var(--ink);}
+.role-switch .rs-btn.is-on{background:var(--voltage-soft);color:var(--voltage);}
+
+.utilbar{
+  position:fixed;top:0;left:var(--rail-w);right:0;height:var(--util-h);
+  background:var(--canvas);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:0 var(--gutter);z-index:35;
+}
+.util-left{display:flex;align-items:center;gap:16px;min-width:0;}
+.util-right{display:flex;align-items:center;gap:12px;}
+.util-role{
+  display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--border);
+  font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--voltage);
+}
+.icon-btn{
+  width:44px;height:44px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  color:var(--ink-muted);position:relative;transition:color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--border-active);background:var(--surface-2);}
+.icon-btn .unread{
+  position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--voltage);
+}
+.avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-active);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink);flex:none;
+}
+.util-user{display:flex;align-items:center;gap:10px;min-width:0;}
+.util-user .uu-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.util-user .uu-phone{font-family:var(--font-data);font-size:12px;color:var(--ink-muted);}
+
+.main{
+  margin-left:var(--rail-w);padding:calc(var(--util-h) + 48px) var(--gutter) 64px;
+  max-width:1440px;
+}
+.work-grid{display:grid;grid-template-columns:5fr 7fr;gap:var(--gutter);align-items:start;}
+.work-grid > .col{min-width:0;}
+.page-head{display:flex;flex-direction:column;gap:12px;margin-bottom:32px;}
+.page-head .ph-row{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+.section{margin-top:48px;}
+.section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);
+}
+
+/* order cards */
+.order-list{display:flex;flex-direction:column;gap:16px;}
+.order-card{display:flex;flex-direction:column;gap:16px;}
+.order-card .oc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.order-card .oc-id{font-family:var(--font-data);font-size:14px;color:var(--ink-muted);}
+.order-card .oc-title{font-family:var(--font-display);font-size:32px;font-weight:700;line-height:1;text-transform:uppercase;}
+.order-card .oc-sub{font-family:var(--font-data);font-size:14px;color:var(--ink-muted);}
+.route-row{display:flex;align-items:stretch;gap:12px;}
+.route-line{width:2px;background:var(--border);position:relative;flex:none;margin:6px 0;}
+.route-line::before,.route-line::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);width:8px;height:8px;
+}
+.route-line::before{top:0;background:var(--voltage);}
+.route-line::after{bottom:0;border:1.5px solid var(--ink-muted);}
+.route-points{display:flex;flex-direction:column;justify-content:space-between;gap:14px;min-width:0;}
+.route-points .rp-item{min-width:0;}
+.route-points .rp-val{font-size:14px;line-height:1.3;}
+.meta-grid{
+  display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;
+}
+.meta-grid .mg-item{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.meta-grid .mg-val{font-family:var(--font-data);font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+.meta-grid .mg-val.accent{color:var(--voltage);}
+.oc-actions{display:flex;gap:12px;flex-wrap:wrap;}
+.oc-actions .btn{flex:1;min-width:160px;}
+
+.person-row{
+  display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.person-row .pr-main{display:flex;flex-direction:column;gap:2px;min-width:140px;flex:1;}
+.person-row .pr-name{font-size:14px;font-weight:600;}
+.person-row .pr-phone{font-family:var(--font-data);font-size:13px;color:var(--ink-muted);}
+.reqs{width:100%;margin-top:4px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
+.reqs .rq-row{display:flex;gap:12px;font-size:13px;flex-wrap:wrap;}
+.reqs .rq-k{color:var(--ink-faint);min-width:96px;}
+.reqs .rq-v{font-family:var(--font-data);color:var(--ink);}
+
+/* metric band */
+.metric-band{
+  display:grid;grid-template-columns:repeat(3, 1fr);gap:1px;background:var(--border);
+  border:1px solid var(--border);margin-bottom:32px;
+}
+.metric-cell{background:var(--surface-1);padding:24px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+.metric-cell .mc-num{color:var(--ink);}
+.metric-cell .mc-num.accent{color:var(--voltage);}
+.metric-cell .mc-num small{font-size:0.42em;color:var(--ink-muted);margin-left:6px;font-weight:500;}
+
+/* map */
+.map-frame{
+  border:1px solid var(--border);background:var(--surface-1);padding:16px;display:flex;flex-direction:column;gap:12px;
+}
+.map-frame .map-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.map-svg-wrap{position:relative;width:100%;overflow:hidden;background:var(--surface-1);}
+.map-svg-wrap svg{width:100%;height:auto;display:block;}
+.status-strip{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border:1px solid var(--border);background:var(--surface-2);padding:12px 14px;
+}
+.status-strip .ss-live{
+  display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;
+  letter-spacing:0.08em;text-transform:uppercase;color:var(--voltage);
+}
+.pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--voltage);position:relative;flex:none;}
+.pulse-dot::after{
+  content:"";position:absolute;inset:-4px;border:1px solid var(--voltage);border-radius:50%;
+  animation:pulseRing 2200ms ease-out infinite;
+}
+@keyframes pulseRing{
+  0%{transform:scale(0.5);opacity:0.9;}
+  70%{transform:scale(1.8);opacity:0;}
+  100%{opacity:0;}
+}
+.eta-module{
+  border-top:1px solid var(--border);padding-top:16px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.eta-num{
+  font-family:var(--font-data);font-weight:600;font-variant-numeric:tabular-nums;
+  font-size:clamp(40px, 4vw, 56px);line-height:0.95;color:var(--voltage);
+}
+.eta-module .eta-side{display:flex;flex-direction:column;gap:4px;text-align:right;}
+.eta-module .eta-side .es-val{font-family:var(--font-data);font-size:15px;font-weight:600;}
+.eta-locked{animation:etaLock 220ms var(--ease-out);}
+@keyframes etaLock{from{transform:scale(0.96);opacity:0.6;}to{transform:scale(1);opacity:1;}}
+
+.map-legend{display:flex;gap:16px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-muted);}
+.legend-swatch{width:12px;height:12px;flex:none;}
+.legend-swatch.route{height:3px;background:var(--voltage);}
+.legend-swatch.client{background:var(--ink);}
+.legend-swatch.workshop{border:1.5px solid var(--ink);}
+.legend-swatch.carrier{border-radius:50%;background:var(--voltage);}
+
+/* notifications drawer */
+.drawer-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:60;
+  animation:fadeIn 180ms ease;
+}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:360px;max-width:100vw;
+  background:var(--surface-1);border-left:1px solid var(--border);z-index:61;
+  display:flex;flex-direction:column;
+  animation:slideIn 240ms var(--ease-out);
+}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes slideIn{from{transform:translateX(16px);opacity:0;}to{transform:none;opacity:1;}}
+.drawer-head{
+  height:var(--util-h);border-bottom:1px solid var(--border);padding:0 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;
+}
+.drawer-body{flex:1;overflow:auto;}
+.notif-row{
+  display:flex;flex-direction:column;gap:8px;padding:16px 20px;border-bottom:1px solid var(--border);
+  border-left:3px solid transparent;
+}
+.notif-row.is-unread{border-left-color:var(--voltage);background:var(--surface-2);}
+.notif-row .nr-text{font-size:14px;line-height:1.4;}
+.notif-row .nr-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.notif-row .nr-time{font-family:var(--font-data);font-size:12px;color:var(--ink-faint);}
+.drawer-foot{border-top:1px solid var(--border);padding:16px 20px;display:flex;gap:12px;}
+.empty{
+  border:1px dashed var(--border);padding:32px 24px;text-align:center;color:var(--ink-muted);
+  display:flex;flex-direction:column;gap:8px;align-items:center;
+}
+
+/* chat */
+.chat-layout{display:grid;grid-template-columns:280px 1fr;gap:1px;background:var(--border);border:1px solid var(--border);min-height:560px;}
+.chat-list{background:var(--surface-1);display:flex;flex-direction:column;}
+.chat-list-head{padding:16px;border-bottom:1px solid var(--border);}
+.chat-conv{
+  display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-bottom:1px solid var(--border);
+  text-align:left;width:100%;border-left:3px solid transparent;
+}
+.chat-conv:hover{background:var(--surface-2);}
+.chat-conv.is-on{background:var(--surface-2);border-left-color:var(--voltage);}
+.chat-conv .cc-title{font-size:13px;font-weight:600;}
+.chat-conv .cc-sub{font-family:var(--font-data);font-size:11px;color:var(--ink-muted);}
+.chat-main{background:var(--canvas);display:flex;flex-direction:column;min-width:0;}
+.chat-head{
+  padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+.chat-context{
+  padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface-1);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.chip{
+  display:inline-flex;align-items:center;height:22px;padding:0 8px;background:var(--voltage-soft);
+  color:var(--voltage);font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+}
+.msgs{flex:1;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:12px;max-height:520px;}
+.msg{max-width:72%;padding:12px 14px;display:flex;flex-direction:column;gap:6px;}
+.msg.mine{background:var(--surface-2);align-self:flex-end;}
+.msg.theirs{background:transparent;border:1px solid var(--border);align-self:flex-start;}
+.msg .m-text{font-size:14px;line-height:1.45;}
+.msg .m-meta{display:flex;gap:10px;align-items:center;font-family:var(--font-data);font-size:11px;color:var(--ink-faint);}
+.chat-compose{border-top:1px solid var(--border);padding:16px 20px;display:flex;gap:12px;align-items:flex-end;}
+.chat-compose .textarea{min-height:48px;max-height:120px;}
+.chat-compose .btn{height:48px;flex:none;}
+
+/* profile */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--gutter);align-items:start;}
+.kv-list{display:flex;flex-direction:column;gap:0;}
+.kv{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.kv:last-child{border-bottom:0;}
+.kv .kv-k{color:var(--ink-muted);font-size:13px;}
+.kv .kv-v{font-family:var(--font-data);font-size:15px;font-weight:600;text-align:right;}
+.kv .kv-v.wrap{text-align:right;}
+
+/* bottom nav (mobile) */
+.bottomnav{
+  display:none;position:fixed;left:0;right:0;bottom:0;height:64px;z-index:50;
+  background:var(--surface-1);border-top:1px solid var(--border);
+}
+.bottomnav .bn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--ink-muted);font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+}
+.bottomnav .bn-item.is-active{color:var(--voltage);}
+
+/* toast */
+.toast-root{position:fixed;right:24px;bottom:24px;z-index:80;display:flex;flex-direction:column;gap:12px;max-width:360px;}
+.toast{
+  background:var(--surface-2);border:1px solid var(--border-active);padding:14px 16px;
+  display:flex;gap:12px;align-items:flex-start;
+  animation:toastIn 280ms var(--ease-out);
+}
+.toast.t-ok{border-left:3px solid var(--success);}
+.toast.t-alert{border-left:3px solid var(--danger);}
+.toast.t-live{border-left:3px solid var(--voltage);}
+.toast .ts-text{font-size:13px;line-height:1.4;}
+@keyframes toastIn{from{transform:translateX(16px);opacity:0;}to{transform:none;opacity:1;}}
+
+/* stamps & animations */
+.stamp{animation:stampIn 240ms var(--ease-stamp);}
+@keyframes stampIn{from{transform:scale(0.85) rotate(-3deg);opacity:0;}to{transform:none;opacity:1;}}
+.intake{animation:intake 280ms var(--ease-out) both;}
+@keyframes intake{from{transform:translateX(16px);opacity:0;}to{transform:none;opacity:1;}}
+.intake-1{animation-delay:0ms;}
+.intake-2{animation-delay:70ms;}
+.intake-3{animation-delay:140ms;}
+
+.route-path{
+  stroke:var(--voltage);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;
+}
+.route-path-anim{
+  stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
+  animation:drawRoute 900ms var(--ease-out) forwards;
+}
+@keyframes drawRoute{to{stroke-dashoffset:0;}}
+.truck-marker{transition:transform 900ms linear;}
+
+/* dialogs */
+.dialog-wrap{
+  position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(0,0,0,0.55);animation:fadeIn 180ms ease;
+}
+.dialog{
+  background:var(--surface-1);border:1px solid var(--border);padding:24px;width:100%;max-width:440px;
+  display:flex;flex-direction:column;gap:20px;
+}
+.dialog-actions{display:flex;gap:12px;flex-wrap:wrap;}
+.dialog-actions .btn{flex:1;min-width:140px;}
+
+/* mobile role menu */
+.mobile-top{display:none;}
+.menu-sheet{
+  position:fixed;inset:0;z-index:65;background:rgba(0,0,0,0.55);
+}
+.menu-sheet .ms-panel{
+  position:absolute;top:0;left:0;right:0;bottom:64px;background:var(--surface-1);
+  border-bottom:1px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:16px;overflow:auto;
+  animation:slideDown 240ms var(--ease-out);
+}
+@keyframes slideDown{from{transform:translateY(-12px);opacity:0;}to{transform:none;opacity:1;}}
+
+/* helpers */
+.row{display:flex;align-items:center;gap:12px;}
+.row-wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.col{display:flex;flex-direction:column;}
+.gap-4{gap:4px;}.gap-8{gap:8px;}.gap-12{gap:12px;}.gap-16{gap:16px;}.gap-24{gap:24px;}
+.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mt-16{margin-top:16px;}.mt-24{margin-top:24px;}
+.muted{color:var(--ink-muted);}
+.faint{color:var(--ink-faint);}
+.amber{color:var(--voltage);}
+.green{color:var(--success);}
+.red{color:var(--danger);}
+.nowrap{white-space:nowrap;}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+.big-num-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1099px){
+  :root{--gutter:24px;}
+  .rail{display:none;}
+  .utilbar{display:none;}
+  .mobile-top{
+    display:flex;position:fixed;top:0;left:0;right:0;height:64px;z-index:35;
+    background:var(--canvas);border-bottom:1px solid var(--border);
+    align-items:center;justify-content:space-between;gap:12px;padding:0 var(--gutter);
+  }
+  .main{margin-left:0;padding:calc(64px + 24px) var(--gutter) 96px;}
+  .entry-main{grid-template-columns:1fr;}
+  .entry-copy{border-right:0;border-bottom:1px solid var(--border);}
+  .entry-map-wrap{padding:24px var(--gutter);}
+  .work-grid{grid-template-columns:1fr;}
+  .profile-grid{grid-template-columns:1fr;}
+  .chat-layout{grid-template-columns:1fr;}
+  .chat-list{max-height:220px;overflow:auto;}
+  .bottomnav{display:flex;}
+  .metric-band{grid-template-columns:1fr;}
+}
+@media (max-width:767px){
+  :root{--gutter:16px;}
+  .main{padding:calc(64px + 16px) var(--gutter) 96px;}
+  .field-row{grid-template-columns:1fr;}
+  .meta-grid{grid-template-columns:1fr;}
+  .meta-grid .mg-item{
+    flex-direction:row;justify-content:space-between;align-items:baseline;gap:12px;
+  }
+  .oc-actions .btn{min-width:120px;}
+  .drawer{width:100vw;}
+  .toast-root{right:12px;left:12px;bottom:76px;max-width:none;}
+  .chat-compose{flex-direction:column;align-items:stretch;}
+  .chat-compose .btn{width:100%;}
+  .msg{max-width:88%;}
+  .entry-copy{padding:32px var(--gutter);}
+  .reg-card{padding:16px;}
+  .panel{padding:16px;}
+  .eta-module .eta-side{text-align:left;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:100ms !important;
+  }
+  .route-path-anim{stroke-dashoffset:0 !important;}
+  .truck-marker{transition:none !important;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="overlay-root"></div>
+<div class="toast-root" id="toast-root"></div>
+<div id="live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   0. UTIL
+   ============================================================ */
+function $(s, r){ return (r||document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function uid(p){ return (p||'id') + '-' + Math.random().toString(36).slice(2, 9); }
+function now(){ return Date.now(); }
+
+var fmtMoney = new Intl.NumberFormat('ru-RU');
+function money(n){ return fmtMoney.format(Math.round(n)) + ' ₽'; }
+
+function plural(n, forms){
+  var n10 = Math.abs(n) % 10, n100 = Math.abs(n) % 100;
+  if (n10 === 1 && n100 !== 11) return forms[0];
+  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return forms[1];
+  return forms[2];
+}
+function chickenWord(n){ return plural(n, ['курица', 'курицы', 'куриц']); }
+
+function fmtPhoneDigits(d){
+  d = String(d || '').replace(/\D/g, '');
+  if (d.charAt(0) === '8') d = '7' + d.slice(1);
+  if (d.charAt(0) !== '7') d = '7' + d;
+  d = d.slice(0, 11);
+  return d;
+}
+function fmtPhone(d){
+  d = fmtPhoneDigits(d);
+  if (d.length < 11) return '+' + d;
+  return '+7 (' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7, 9) + '-' + d.slice(9, 11);
+}
+function maskCard(card){
+  var clean = String(card || '').replace(/\s/g, '');
+  if (clean.length < 8) return clean;
+  return clean.slice(0, 4) + ' •••• •••• ' + clean.slice(-4);
+}
+function fmtCardFull(card){
+  var clean = String(card || '').replace(/\D/g, '');
+  var out = [];
+  for (var i = 0; i < clean.length; i += 4) out.push(clean.slice(i, i + 4));
+  return out.join(' ');
+}
+function fmtTime(ts){
+  var d = new Date(ts);
+  var h = d.getHours(), m = d.getMinutes();
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+function fmtDateTime(ts){
+  var d = new Date(ts);
+  var day = d.getDate(), mon = d.getMonth() + 1;
+  return (day < 10 ? '0' : '') + day + '.' + (mon < 10 ? '0' : '') + mon + ', ' + fmtTime(ts);
+}
+function timeAgo(ts){
+  var diff = Math.max(0, now() - ts);
+  var min = Math.floor(diff / 60000);
+  if (min < 1) return 'только что';
+  if (min < 60) return min + ' ' + plural(min, ['минуту', 'минуты', 'минут']) + ' назад';
+  var h = Math.floor(min / 60);
+  if (h < 24) return h + ' ' + plural(h, ['час', 'часа', 'часов']) + ' назад';
+  return fmtDateTime(ts);
+}
+
+/* ============================================================
+   1. ICONS (inline SVG, 1.75 stroke, round caps)
+   ============================================================ */
+function icon(name, size){
+  var s = size || 20;
+  var open = '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var p = {
+    chicken: '<path d="M8 13c-2 0-4 1.6-4 4 0 2.2 2 4 5 4h7c3.2 0 5-1.8 5-4 0-2.6-2-4.2-4.2-4.2"/><circle cx="14.5" cy="6.5" r="2.5"/><path d="M12.4 8.3C10.6 9.7 8 10.4 5 10l1.4 2.2"/><path d="M16.8 9v3.4"/><path d="M9 21v-2M15 21v-2"/>',
+    truck: '<path d="M2 7h11v9H2z"/><path d="M13 10h4.5L21 13v3h-8"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/><path d="M8.3 17.5h6.9"/>',
+    workshop: '<path d="M3 20V9l5-4 5 4v11"/><path d="M13 20V13h8v7"/><path d="M6 20v-5h4v5"/><path d="M16 16h2"/><path d="M8 3v3"/>',
+    phone: '<path d="M6 3h3l2 5-2.2 1.6a12 12 0 0 0 5.6 5.6L16 13l5 2v3a2 2 0 0 1-2 2A15 15 0 0 1 4 5a2 2 0 0 1 2-2z"/>',
+    card: '<rect x="2.5" y="5.5" width="19" height="13" rx="1.5"/><path d="M2.5 10h19"/><path d="M6 14.5h4"/>',
+    bell: '<path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13 6 9z"/><path d="M10 18a2 2 0 0 0 4 0"/>',
+    chat: '<path d="M4 5h16v10H9l-5 4V5z"/><path d="M8 9h8M8 12h5"/>',
+    pin: '<path d="M12 21s-6.5-6.1-6.5-11A6.5 6.5 0 0 1 18.5 10c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.5 2.2"/>',
+    check: '<path d="M4.5 12.5l5 5 10-11"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    route: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a3.5 3.5 0 0 1 0 7H10a3.5 3.5 0 0 0 0 7h5.5"/>',
+    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+    user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/>',
+    logout: '<path d="M10 5H5v14h5"/><path d="M15 8l4 4-4 4"/><path d="M19 12H9"/>',
+    edit: '<path d="M4 20h4L20 8l-4-4L4 16v4z"/><path d="M14.5 5.5l4 4"/>',
+    eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+    eyeOff: '<path d="M4 4l16 16"/><path d="M9.5 9.6A2.8 2.8 0 0 0 12 14.8"/><path d="M6.2 6.9C4 8.6 2.5 12 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M18.4 15.4C20.4 13.9 21.5 12 21.5 12S18 5.5 12 5.5c-.7 0-1.4.1-2 .2"/>',
+    box: '<path d="M3 8l9-4 9 4v8l-9 4-9-4V8z"/><path d="M3 8l9 4 9-4M12 12v8"/>',
+    send: '<path d="M4 12l16-7-6 16-2.5-6.5L4 12z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8.2v.1"/>'
+  };
+  return open + (p[name] || p.info) + '</svg>';
+}
+
+/* ============================================================
+   2. STATE / PERSISTENCE
+   ============================================================ */
+var LS_KEY = 'kurovoz_v1';
+
+function seed(){
+  var t = now();
+  var users = [
+    {
+      id: 'u1', name: 'Ольга Смирнова', phone: '79031112233',
+      bank: 'Сбербанк', card: '54692012447781', recipient: 'ОЛЬГА СМИРНОВА',
+      role: 'client', roles: ['client'], address: ''
+    },
+    {
+      id: 'u2', name: 'Марат Ким', phone: '79267701802',
+      bank: 'Т-Банк', card: '22002412349412', recipient: 'МАРАТ КИМ',
+      role: 'carrier', roles: ['carrier'], address: ''
+    },
+    {
+      id: 'u3', name: 'Цех №1 на Братиславской', phone: '74951204560',
+      bank: 'Сбербанк', card: '42763210551029', recipient: 'ООО «ЧИСТЫЙ ЦЕХ»',
+      role: 'workshop', roles: ['workshop'], address: 'Москва, ул. Братиславская, 18'
+    },
+    {
+      id: 'u4', name: 'Анна Петрова', phone: '79164027731',
+      bank: 'Альфа-Банк', card: '55432012887710', recipient: 'АННА ПЕТРОВА',
+      role: 'client', roles: ['client'], address: ''
+    }
+  ];
+
+  var orders = [
+    {
+      id: 'A-2451', qty: 120, pricePer: 15, total: 1800,
+      pickup: 'Москва, ул. Ленина, 24', pickupPoint: [220, 200],
+      clientId: 'u1', carrierId: 'u2', workshopId: 'u3',
+      state: 'in_transit', workshopStatus: 'accepted', carrierStatus: 'accepted',
+      progress: 0.35, totalMin: 37, createdAt: t - 1000 * 60 * 52,
+      acceptedAt: t - 1000 * 60 * 26, comment: 'Клетки у подъезда, звоните за 10 минут.',
+      deliveredAt: null
+    },
+    {
+      id: 'A-2452', qty: 80, pricePer: 20, total: 1600,
+      pickup: 'Москва, ул. Кирова, 7', pickupPoint: [340, 130],
+      clientId: 'u1', carrierId: null, workshopId: 'u3',
+      state: 'awaiting_carrier', workshopStatus: 'pending', carrierStatus: 'pending',
+      progress: 0, totalMin: 30, createdAt: t - 1000 * 60 * 18,
+      acceptedAt: null, comment: '', deliveredAt: null
+    },
+    {
+      id: 'A-2453', qty: 150, pricePer: 18, total: 2700,
+      pickup: 'Москва, проспект Мира, 41', pickupPoint: [430, 300],
+      clientId: 'u4', carrierId: 'u2', workshopId: 'u3',
+      state: 'accepted', workshopStatus: 'accepted', carrierStatus: 'accepted',
+      progress: 0, totalMin: 42, createdAt: t - 1000 * 60 * 40,
+      acceptedAt: t - 1000 * 60 * 6, comment: 'Большая партия, нужен рефрижератор.',
+      deliveredAt: null
+    },
+    {
+      id: 'A-2454', qty: 70, pricePer: 14, total: 980,
+      pickup: 'Москва, ул. Шаболовка, 12', pickupPoint: [160, 380],
+      clientId: 'u4', carrierId: null, workshopId: 'u3',
+      state: 'awaiting_carrier', workshopStatus: 'pending', carrierStatus: 'pending',
+      progress: 0, totalMin: 28, createdAt: t - 1000 * 60 * 9,
+      acceptedAt: null, comment: '', deliveredAt: null
+    },
+    {
+      id: 'A-2448', qty: 60, pricePer: 12, total: 720,
+      pickup: 'Москва, ул. Тверская, 9', pickupPoint: [300, 460],
+      clientId: 'u1', carrierId: 'u2', workshopId: 'u3',
+      state: 'done', workshopStatus: 'accepted', carrierStatus: 'accepted',
+      progress: 1, totalMin: 32, createdAt: t - 1000 * 60 * 60 * 6,
+      acceptedAt: t - 1000 * 60 * 60 * 5, comment: '',
+      deliveredAt: t - 1000 * 60 * 58
+    }
+  ];
+
+  var messages = [
+    { id: uid('m'), orderId: 'A-2451', from: 'u1', text: 'Марат, добрый день! По заказу A-2451: 120 куриц, погрузка на Ленина, 24.', ts: t - 1000 * 60 * 30, priceChip: false },
+    { id: uid('m'), orderId: 'A-2451', from: 'u2', text: 'Здравствуйте. Согласен везти, но 15 ₽ за курицу немного мало при таком трафике.', ts: t - 1000 * 60 * 28, priceChip: false },
+    { id: uid('m'), orderId: 'A-2451', from: 'u1', text: 'Давайте 18 ₽ за курицу, если подадите машину в течение часа.', ts: t - 1000 * 60 * 27, priceChip: true },
+    { id: uid('m'), orderId: 'A-2451', from: 'u2', text: 'Договорились. 18 ₽ за курицу, итого 2160 ₽. Выезжаю на погрузку.', ts: t - 1000 * 60 * 26, priceChip: true },
+    { id: uid('m'), orderId: 'A-2451', from: 'u1', text: 'Отлично, спасибо! Цех на Братиславской, 18 — уже предупредили.', ts: t - 1000 * 60 * 25, priceChip: false }
+  ];
+
+  return {
+    users: users,
+    orders: orders,
+    messages: messages,
+    notifications: [],
+    sessionUserId: null,
+    seededAt: t
+  };
+}
+
+var DB = (function load(){
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      var d = JSON.parse(raw);
+      if (d && d.users && d.orders) return d;
+    }
+  } catch (e) {}
+  var fresh = seed();
+  try { localStorage.setItem(LS_KEY, JSON.stringify(fresh)); } catch (e) {}
+  return fresh;
+})();
+
+function persist(){
+  try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {}
+}
+
+function currentUser(){
+  if (!DB.sessionUserId) return null;
+  return DB.users.filter(function(u){ return u.id === DB.sessionUserId; })[0] || null;
+}
+function userById(id){
+  return DB.users.filter(function(u){ return u.id === id; })[0] || null;
+}
+function orderById(id){
+  return DB.orders.filter(function(o){ return o.id === id; })[0] || null;
+}
+
+/* ============================================================
+   3. UI STATE (not persisted)
+   ============================================================ */
+var ui = {
+  view: 'orders',
+  selectedOrderId: null,
+  chatOrderId: null,
+  newOrderOpen: false,
+  editProfile: false,
+  showReq: {},
+  drawerOpen: false,
+  menuOpen: false,
+  dialog: null,
+  reg: {
+    step: 0,
+    phone: '',
+    code: '',
+    codeSent: null,
+    name: '',
+    bank: '',
+    card: '',
+    recipient: '',
+    role: '',
+    errors: {}
+  },
+  login: { phone: '', errors: {} },
+  mode: 'register' /* register | login */
+};
+
+var ROLE_LABEL = { client: 'Клиент', carrier: 'Перевозчик', workshop: 'Чистка' };
+var ROLE_DESC = {
+  client: 'Заказывайте куриц, назначайте цену перевозчику и отправляйте заказ в цех.',
+  carrier: 'Принимайте заказы, получайте деньги за перевозку и везите куриц в цех.',
+  workshop: 'Видите, сколько куриц едет к вам, кто везёт и когда они прибудут.'
+};
+
+/* ============================================================
+   4. FEEDBACK: toast + announce
+   ============================================================ */
+function announce(text){
+  var el = $('#live-region');
+  if (el) el.textContent = text;
+}
+function toast(text, kind){
+  var root = $('#toast-root');
+  if (!root) return;
+  var el = document.createElement('div');
+  el.className = 'toast ' + (kind === 'ok' ? 't-ok' : kind === 'alert' ? 't-alert' : 't-live');
+  el.innerHTML = '<div class="ts-text">' + esc(text) + '</div>';
+  root.appendChild(el);
+  setTimeout(function(){
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 200ms ease';
+    setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+  }, 4200);
+}
+
+function notify(userId, text, orderId){
+  DB.notifications.unshift({
+    id: uid('n'),
+    userId: userId,
+    text: text,
+    orderId: orderId || null,
+    ts: now(),
+    read: false
+  });
+  if (DB.notifications.length > 80) DB.notifications.length = 80;
+  persist();
+  var me = currentUser();
+  if (me && userId === me.id) {
+    toast(text, 'live');
+    announce(text);
+    render();
+  }
+}
+function myNotifications(){
+  var me = currentUser();
+  if (!me) return [];
+  return DB.notifications.filter(function(n){ return n.userId === me.id; });
+}
+function unreadCount(){
+  return myNotifications().filter(function(n){ return !n.read; }).length;
+}
+
+/* ============================================================
+   5. DOMAIN HELPERS
+   ============================================================ */
+function orderTotal(o){ return Math.round(o.qty * o.pricePer); }
+
+function stateBadge(o){
+  switch (o.state) {
+    case 'awaiting_carrier': return { cls: 'badge-new', text: 'Ожидает перевозчика' };
+    case 'accepted': return { cls: 'badge-new', text: 'Едет на погрузку' };
+    case 'in_transit': return { cls: 'badge-new', text: 'В пути' };
+    case 'arrived': return { cls: 'badge-ok', text: 'Прибыл в цех' };
+    case 'done': return { cls: 'badge-ok', text: 'Завершён' };
+    case 'cancelled': return { cls: 'badge-alert', text: 'Отменён' };
+    default: return { cls: 'badge-muted', text: o.state };
+  }
+}
+function workshopBadge(o){
+  switch (o.workshopStatus) {
+    case 'accepted': return { cls: 'badge-ok', text: 'Цех принял' };
+    case 'declined': return { cls: 'badge-alert', text: 'Цех отклонил' };
+    default: return { cls: 'badge-muted', text: 'Цех: ожидает решения' };
+  }
+}
+function etaMinutes(o){
+  if (o.state === 'done') return 0;
+  if (o.state === 'arrived') return 0;
+  var remain = Math.max(0, (1 - (o.progress || 0)) * (o.totalMin || 30));
+  return Math.ceil(remain);
+}
+function myOrders(){
+  var me = currentUser();
+  if (!me) return [];
+  return DB.orders.filter(function(o){
+    return o.clientId === me.id || o.carrierId === me.id || o.workshopId === me.id;
+  }).sort(function(a, b){ return b.createdAt - a.createdAt; });
+}
+function clientOrders(){
+  var me = currentUser();
+  return DB.orders.filter(function(o){ return o.clientId === me.id; })
+    .sort(function(a, b){ return b.createdAt - a.createdAt; });
+}
+function carrierIncoming(){
+  var me = currentUser();
+  return DB.orders.filter(function(o){
+    return o.state === 'awaiting_carrier' && o.carrierId !== me.id;
+  }).sort(function(a, b){ return b.createdAt - a.createdAt; });
+}
+function carrierActive(){
+  var me = currentUser();
+  return DB.orders.filter(function(o){
+    return o.carrierId === me.id && (o.state === 'accepted' || o.state === 'in_transit' || o.state === 'arrived');
+  }).sort(function(a, b){ return b.createdAt - a.createdAt; });
+}
+function workshopIncoming(){
+  var me = currentUser();
+  return DB.orders.filter(function(o){
+    return o.workshopId === me.id && o.state !== 'done' && o.state !== 'cancelled';
+  }).sort(function(a, b){ return b.createdAt - a.createdAt; });
+}
+function workshopHistory(){
+  var me = currentUser();
+  return DB.orders.filter(function(o){
+    return o.workshopId === me.id && (o.state === 'done' || o.state === 'cancelled');
+  }).sort(function(a, b){ return (b.deliveredAt || b.createdAt) - (a.deliveredAt || a.createdAt); });
+}
+function orderMessages(orderId){
+  return DB.messages.filter(function(m){ return m.orderId === orderId; })
+    .sort(function(a, b){ return a.ts - b.ts; });
+}
+function counterpartFor(o){
+  var me = currentUser();
+  if (!me) return null;
+  if (o.clientId === me.id) return userById(o.carrierId) || userById(o.workshopId);
+  if (o.carrierId === me.id) return userById(o.clientId);
+  return userById(o.clientId);
+}
+function nextOrderId(){
+  var max = 2454;
+  DB.orders.forEach(function(o){
+    var n = parseInt(String(o.id).replace(/\D/g, ''), 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  return 'A-' + (max + 1);
+}
+
+/* ============================================================
+   6. PROCEDURAL MAP
+   ============================================================ */
+var WORKSHOP_POINT = [760, 420];
+
+function routeD(from){
+  var to = WORKSHOP_POINT;
+  var mx = (from[0] + to[0]) / 2;
+  var my = (from[1] + to[1]) / 2;
+  var dx = to[0] - from[0], dy = to[1] - from[1];
+  var len = Math.sqrt(dx * dx + dy * dy) || 1;
+  var nx = -dy / len, ny = dx / len;
+  var bow = Math.min(120, len * 0.22);
+  var c1x = from[0] + dx * 0.3 + nx * bow, c1y = from[1] + dy * 0.3 + ny * bow;
+  var c2x = mx + dx * 0.15 + nx * bow * 0.6, c2y = my + dy * 0.15 + ny * bow * 0.6;
+  return 'M ' + from[0] + ' ' + from[1] + ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) +
+    ', ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' + to[0] + ' ' + to[1];
+}
+
+function cityGridSvg(){
+  var g = '';
+  var i;
+  for (i = 0; i <= 10; i++) {
+    var x = i * 100;
+    g += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="640" stroke="#20292A" stroke-width="' + (i % 5 === 0 ? 3 : 1) + '"/>';
+  }
+  for (i = 0; i <= 7; i++) {
+    var y = i * 80;
+    g += '<line x1="0" y1="' + y + '" x2="1000" y2="' + y + '" stroke="#20292A" stroke-width="' + (i % 4 === 0 ? 3 : 1) + '"/>';
+  }
+  /* blocks */
+  var blocks = [
+    [60, 40, 180, 120], [300, 60, 140, 90], [520, 30, 200, 110], [800, 60, 140, 100],
+    [80, 240, 160, 100], [320, 220, 180, 120], [560, 200, 120, 140], [720, 240, 180, 90],
+    [40, 440, 200, 120], [300, 420, 150, 100], [520, 440, 170, 110], [780, 380, 140, 120],
+    [860, 520, 100, 80], [120, 560, 140, 60]
+  ];
+  blocks.forEach(function(b){
+    g += '<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '" fill="#111516"/>';
+  });
+  /* diagonal avenue */
+  g += '<path d="M 0 600 L 380 380 L 720 300 L 1000 120" stroke="#20292A" stroke-width="6" fill="none"/>';
+  return g;
+}
+
+function nodeSquare(x, y, color, label, labelDx, labelDy){
+  var s = '';
+  s += '<rect x="' + (x - 9) + '" y="' + (y - 9) + '" width="18" height="18" fill="' + color + '"/>';
+  if (label) {
+    s += '<text x="' + (x + labelDx) + '" y="' + (y + labelDy) + '" fill="#9AA5A1" font-family="Inter, sans-serif" font-size="15" font-weight="700" letter-spacing="1.2">' + esc(label) + '</text>';
+  }
+  return s;
+}
+function nodeWorkshop(x, y, label){
+  var s = '';
+  s += '<rect x="' + (x - 11) + '" y="' + (y - 11) + '" width="22" height="22" fill="#0B0D0E" stroke="#F2EDE3" stroke-width="2.5"/>';
+  s += '<rect x="' + (x - 5) + '" y="' + (y - 5) + '" width="10" height="10" fill="none" stroke="#FFB000" stroke-width="2"/>';
+  if (label) {
+    s += '<text x="' + (x + 18) + '" y="' + (y + 6) + '" fill="#F2EDE3" font-family="Inter, sans-serif" font-size="15" font-weight="700" letter-spacing="1.2">' + esc(label) + '</text>';
+  }
+  return s;
+}
+
+function buildMapSvg(opts){
+  opts = opts || {};
+  var w = 1000, h = 640;
+  var s = '';
+  s += '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(opts.aria || 'Карта маршрута') + '">';
+  s += '<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#0F1414"/>';
+  s += cityGridSvg();
+
+  /* static routes (subtle) */
+  (opts.ghostRoutes || []).forEach(function(d, idx){
+    s += '<path d="' + d + '" stroke="' + (idx % 2 ? '#4EA1D3' : '#2C3737') + '" stroke-width="2" fill="none" stroke-dasharray="6 8" opacity="0.7"/>';
+  });
+
+  /* live route */
+  if (opts.route) {
+    var cls = 'route-path' + (opts.animate ? ' route-path-anim' : '');
+    s += '<path id="' + esc(opts.routeId || 'route-main') + '" class="' + cls + '" d="' + opts.route + '"/>';
+  }
+
+  /* nodes */
+  if (opts.pickup) {
+    s += nodeSquare(opts.pickup[0], opts.pickup[1], '#F2EDE3', opts.pickupLabel || 'Погрузка', 16, 6);
+  }
+  if (opts.workshop !== false) {
+    s += nodeWorkshop(WORKSHOP_POINT[0], WORKSHOP_POINT[1], opts.workshopLabel || 'Чистка');
+  }
+  if (opts.extraNodes) {
+    opts.extraNodes.forEach(function(n){
+      s += nodeSquare(n.x, n.y, n.color || '#66726F', n.label || '', 16, 6);
+    });
+  }
+
+  /* truck marker */
+  if (opts.truckId) {
+    s += '<g id="' + esc(opts.truckId) + '" class="truck-marker" transform="translate(' +
+      (opts.truckAt ? opts.truckAt[0] : WORKSHOP_POINT[0]) + ',' + (opts.truckAt ? opts.truckAt[1] : WORKSHOP_POINT[1]) + ')">';
+    s += '<circle r="17" fill="#FFB000"/>';
+    s += '<path d="M -7 -5 h 9 v 8 h -9 z M 2 -2 h 5 l 3 3 v 2 h -8 z" fill="#0B0D0E"/>';
+    s += '<circle cx="-3.5" cy="4.5" r="1.8" fill="#0B0D0E"/><circle cx="5.5" cy="4.5" r="1.8" fill="#0B0D0E"/>';
+    s += '<path d="M 26 0 h 14" stroke="#FFB000" stroke-width="3" stroke-linecap="round" opacity="0.85"/>';
+    s += '<circle r="17" fill="none" stroke="#FFB000" stroke-width="1.5" opacity="0.8"><animate attributeName="r" values="17;30;17" dur="2.2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2.2s" repeatCount="indefinite"/></circle>';
+    s += '</g>';
+  }
+
+  /* arrival pin */
+  if (opts.arrival) {
+    s += '<g transform="translate(' + opts.arrival[0] + ',' + opts.arrival[1] + ')">';
+    s += '<circle r="6" fill="#59C98A"/>';
+    s += '<text x="12" y="-12" fill="#59C98A" font-family="Inter, sans-serif" font-size="15" font-weight="700" letter-spacing="1.2">ПРИБЫТИЕ</text>';
+    s += '</g>';
+  }
+
+  s += '</svg>';
+  return s;
+}
+
+function entryMapHtml(){
+  var route = routeD([220, 200]);
+  var svg = buildMapSvg({
+    route: route,
+    routeId: 'entry-route',
+    animate: false,
+    pickup: [220, 200],
+    pickupLabel: 'ПОГРУЗКА',
+    workshopLabel: 'ЧИСТКА',
+    aria: 'Схема города: маршрут перевозки куриц от точки погрузки до цеха чистки',
+    ghostRoutes: [routeD([120, 420]), routeD([520, 120])],
+    extraNodes: [
+      { x: 520, y: 120, color: '#FFB000', label: 'ПЕРЕВОЗЧИК' }
+    ],
+    truckId: 'entry-truck',
+    truckAt: [430, 250]
+  });
+  return '<div class="map-frame">' +
+    '<div class="map-head">' +
+      '<div class="t-label t-label-amber">Живая смена · демо-маршрут</div>' +
+      '<div class="map-legend">' +
+        '<div class="legend-item"><span class="legend-swatch route"></span>Маршрут</div>' +
+        '<div class="legend-item"><span class="legend-swatch client"></span>Клиент</div>' +
+        '<div class="legend-item"><span class="legend-swatch workshop"></span>Чистка</div>' +
+        '<div class="legend-item"><span class="legend-swatch carrier"></span>Перевозчик</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="map-svg-wrap">' + svg + '</div>' +
+    '<div class="status-strip">' +
+      '<span class="ss-live"><span class="pulse-dot"></span>В пути</span>' +
+      '<span class="t-data">24 мин</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">120 куриц</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-strong">Марат Ким</span>' +
+    '</div>' +
+  '</div>';
+}
+
+/* live map contexts for tick updates */
+var activeMaps = [];
+
+function mountLiveMaps(){
+  activeMaps = [];
+  $$('.js-map').forEach(function(host){
+    var orderId = host.getAttribute('data-order');
+    var o = orderId ? orderById(orderId) : null;
+    var svg = host.querySelector('svg');
+    if (!svg) return;
+    var path = svg.querySelector('.route-path');
+    var truck = svg.querySelector('.truck-marker');
+    activeMaps.push({ host: host, order: o, path: path, truck: truck, pathLen: 0 });
+    if (path && path.getTotalLength) {
+      try {
+        var len = path.getTotalLength();
+        activeMaps[activeMaps.length - 1].pathLen = len;
+        path.style.setProperty('--len', len);
+        if (path.classList.contains('route-path-anim')) {
+          /* restart draw */
+          path.classList.remove('route-path-anim');
+          void path.getBoundingClientRect();
+          path.classList.add('route-path-anim');
+        }
+      } catch (e) {}
+    }
+    positionTrucks(false);
+  });
+}
+
+function positionTrucks(animate){
+  activeMaps.forEach(function(ctx){
+    if (!ctx.path || !ctx.truck) return;
+    var prog = 0;
+    if (ctx.order && (ctx.order.state === 'accepted' || ctx.order.state === 'in_transit' || ctx.order.state === 'arrived' || ctx.order.state === 'done')) {
+      prog = ctx.order.progress || 0;
+    }
+    prog = Math.max(0, Math.min(1, prog));
+    try {
+      var len = ctx.pathLen || ctx.path.getTotalLength();
+      var pt = ctx.path.getPointAtLength(prog * len);
+      if (!animate) ctx.truck.style.transition = 'none';
+      ctx.truck.setAttribute('transform', 'translate(' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + ')');
+      if (!animate) {
+        void ctx.truck.getBoundingClientRect();
+        ctx.truck.style.transition = '';
+      }
+    } catch (e) {}
+  });
+}
+
+function mapHtmlForOrder(o, opts){
+  opts = opts || {};
+  var from = o.pickupPoint || [220, 200];
+  var route = routeD(from);
+  var ghosts = DB.orders.filter(function(x){ return x.id !== o.id && x.state !== 'done'; })
+    .slice(0, 2).map(function(x){ return routeD(x.pickupPoint || [300, 300]); });
+
+  var live = (o.state === 'accepted' || o.state === 'in_transit' || o.state === 'arrived');
+  var eta = etaMinutes(o);
+  var truckAt = null;
+  if (live || o.state === 'done') {
+    /* approximate truck start/end; precise placement happens in mountLiveMaps */
+    truckAt = from;
+  }
+
+  var statusText;
+  if (o.state === 'awaiting_carrier') statusText = 'Маршрут построен, перевозчик ещё не назначен';
+  else if (o.state === 'accepted') statusText = 'Перевозчик едет на погрузку';
+  else if (o.state === 'in_transit') statusText = 'В пути';
+  else if (o.state === 'arrived') statusText = 'Прибыл в цех';
+  else if (o.state === 'done') statusText = 'Доставка завершена';
+  else statusText = 'Заказ отменён';
+
+  var etaBlock = '';
+  if (live) {
+    etaBlock =
+      '<div class="eta-module" data-eta-order="' + esc(o.id) + '">' +
+        '<div>' +
+          '<div class="t-label">Прибытие через</div>' +
+          '<div class="eta-num">' + eta + ' мин</div>' +
+        '</div>' +
+        '<div class="eta-side">' +
+          '<div class="t-label">Ожидаемое прибытие</div>' +
+          '<div class="es-val">' + fmtTime(now() + eta * 60000) + '</div>' +
+          '<div class="t-data muted" data-eta-qty="' + esc(o.id) + '">' + o.qty + ' ' + chickenWord(o.qty) + '</div>' +
+        '</div>' +
+      '</div>';
+  } else if (o.state === 'done') {
+    etaBlock =
+      '<div class="eta-module">' +
+        '<div>' +
+          '<div class="t-label">Доставлено</div>' +
+          '<div class="eta-num green">' + fmtTime(o.deliveredAt || o.createdAt) + '</div>' +
+        '</div>' +
+        '<div class="eta-side">' +
+          '<div class="t-label">Статус</div>' +
+          '<div class="es-val green">В цеху</div>' +
+          '<div class="t-data muted">' + o.qty + ' ' + chickenWord(o.qty) + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  var svg = buildMapSvg({
+    route: route,
+    routeId: 'route-' + o.id,
+    animate: !!opts.animate && live,
+    pickup: from,
+    pickupLabel: 'ПОГРУЗКА',
+    workshopLabel: 'ЧИСТКА',
+    aria: 'Карта маршрута заказа ' + o.id,
+    ghostRoutes: ghosts,
+    truckId: (live || o.state === 'done') ? ('truck-' + o.id) : null,
+    truckAt: truckAt,
+    arrival: o.state === 'arrived' || o.state === 'done' ? WORKSHOP_POINT : null
+  });
+
+  return '<div class="map-frame">' +
+    '<div class="map-head">' +
+      '<div class="t-label t-label-amber">Маршрут ' + esc(o.id) + '</div>' +
+      '<div class="map-legend">' +
+        '<div class="legend-item"><span class="legend-swatch route"></span>Маршрут</div>' +
+        '<div class="legend-item"><span class="legend-swatch client"></span>Погрузка</div>' +
+        '<div class="legend-item"><span class="legend-swatch workshop"></span>Чистка</div>' +
+        '<div class="legend-item"><span class="legend-swatch carrier"></span>Перевозчик</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="map-svg-wrap js-map" data-order="' + esc(o.id) + '">' + svg + '</div>' +
+    '<div class="status-strip">' +
+      '<span class="ss-live"><span class="pulse-dot"></span>' + esc(statusText) + '</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">' + o.qty + ' ' + chickenWord(o.qty) + '</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">' + money(o.pricePer) + ' / шт</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-strong">' + esc((userById(o.carrierId) || {}).name || 'Перевозчик не назначен') + '</span>' +
+    '</div>' +
+    etaBlock +
+  '</div>';
+}
+
+function overviewMapHtml(){
+  var active = DB.orders.filter(function(o){ return o.state !== 'done' && o.state !== 'cancelled'; });
+  var focus = active.filter(function(o){ return o.state === 'in_transit' || o.state === 'accepted'; })[0] || active[0];
+  if (!focus) return '<div class="empty">' + icon('pin', 24) + '<div class="t-body">Активных маршрутов нет</div></div>';
+
+  var from = focus.pickupPoint || [220, 200];
+  var ghosts = active.filter(function(o){ return o.id !== focus.id; })
+    .slice(0, 3).map(function(o){ return routeD(o.pickupPoint || [300, 300]); });
+
+  var svg = buildMapSvg({
+    route: routeD(from),
+    routeId: 'route-overview',
+    animate: false,
+    pickup: from,
+    pickupLabel: 'ПОГРУЗКА',
+    workshopLabel: 'ЧИСТКА',
+    aria: 'Обзорная карта активных маршрутов',
+    ghostRoutes: ghosts,
+    truckId: 'truck-overview',
+    truckAt: from
+  });
+
+  return '<div class="map-frame">' +
+    '<div class="map-head">' +
+      '<div class="t-label t-label-amber">Смена на карте · ' + active.length + ' ' + plural(active.length, ['маршрут', 'маршрута', 'маршрутов']) + '</div>' +
+    '</div>' +
+    '<div class="map-svg-wrap js-map" data-order="' + esc(focus.id) + '">' + svg + '</div>' +
+    '<div class="status-strip">' +
+      '<span class="ss-live"><span class="pulse-dot"></span>' + esc(stateBadge(focus).text) + '</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">' + esc(focus.id) + '</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">' + focus.qty + ' ' + chickenWord(focus.qty) + '</span>' +
+      '<span class="muted">·</span>' +
+      '<span class="t-data">' + etaMinutes(focus) + ' мин</span>' +
+    '</div>' +
+  '</div>';
+}
+
+/* ============================================================
+   7. COMPONENT PIECES
+   ============================================================ */
+function personRow(u, extra){
+  if (!u) return '';
+  var showKey = u.id;
+  var isOpen = !!ui.showReq[showKey];
+  var me = currentUser();
+  var html =
+    '<div class="person-row">' +
+      '<div class="avatar">' + esc((u.name || '?').trim().charAt(0).toUpperCase()) + '</div>' +
+      '<div class="pr-main">' +
+        '<div class="pr-name">' + esc(u.name) + '</div>' +
+        '<div class="pr-phone">' + esc(fmtPhone(u.phone)) + '</div>' +
+      '</div>' +
+      '<div class="row-wrap">' +
+        '<span class="badge badge-muted">' + esc(ROLE_LABEL[u.role] || u.role) + '</span>' +
+        (extra ? extra : '') +
+        '<button class="btn-ghost" data-action="toggle-req" data-user="' + esc(showKey) + '" aria-expanded="' + (isOpen ? 'true' : 'false') + '">' +
+          icon('card', 18) + ' ' + (isOpen ? 'Скрыть реквизиты' : 'Показать реквизиты') +
+        '</button>' +
+      '</div>' +
+      (isOpen ?
+        '<div class="reqs">' +
+          '<div class="rq-row"><span class="rq-k">Банк</span><span class="rq-v">' + esc(u.bank) + '</span></div>' +
+          '<div class="rq-row"><span class="rq-k">Карта / счёт</span><span class="rq-v">' + esc(fmtCardFull(u.card)) + '</span></div>' +
+          '<div class="rq-row"><span class="rq-k">Получатель</span><span class="rq-v">' + esc(u.recipient) + '</span></div>' +
+          (u.address ? '<div class="rq-row"><span class="rq-k">Адрес</span><span class="rq-v">' + esc(u.address) + '</span></div>' : '') +
+        '</div>'
+        : '') +
+    '</div>';
+  return html;
+}
+
+function orderCardHtml(o, opts){
+  opts = opts || {};
+  var sb = stateBadge(o);
+  var wb = workshopBadge(o);
+  var client = userById(o.clientId);
+  var carrier = userById(o.carrierId);
+  var workshop = userById(o.workshopId);
+  var me = currentUser();
+
+  var actions = '';
+  if (opts.mode === 'client') {
+    actions =
+      '<button class="btn btn-secondary" data-action="open-chat" data-order="' + esc(o.id) + '">' + icon('chat', 18) + ' Написать перевозчику</button>' +
+      '<button class="btn btn-secondary" data-action="open-route" data-order="' + esc(o.id) + '">' + icon('route', 18) + ' Открыть маршрут</button>';
+  } else if (opts.mode === 'carrier-incoming') {
+    actions =
+      '<button class="btn-accept-zone" data-action="accept-order" data-order="' + esc(o.id) + '">' + icon('check', 20) + ' Принять заказ · ' + money(orderTotal(o)) + '</button>' +
+      '<div class="row" style="gap:12px;flex:1;">' +
+        '<button class="btn btn-secondary" style="flex:1" data-action="decline-order" data-order="' + esc(o.id) + '">' + icon('x', 18) + ' Не подходит</button>' +
+        '<button class="btn btn-secondary" style="flex:1" data-action="open-chat" data-order="' + esc(o.id) + '">' + icon('chat', 18) + ' Написать клиенту</button>' +
+      '</div>';
+  } else if (opts.mode === 'carrier-active') {
+    actions =
+      '<button class="btn btn-primary" data-action="open-route" data-order="' + esc(o.id) + '">' + icon('route', 18) + ' Открыть маршрут</button>' +
+      '<button class="btn btn-secondary" data-action="open-chat" data-order="' + esc(o.id) + '">' + icon('chat', 18) + ' Чат с клиентом</button>' +
+      (o.state === 'in_transit' || o.state === 'accepted' ?
+        '<button class="btn btn-secondary" data-action="mark-delivered" data-order="' + esc(o.id) + '">' + icon('check', 18) + ' Отметить прибытие</button>' : '');
+  } else if (opts.mode === 'workshop') {
+    actions =
+      (o.workshopStatus === 'pending' ?
+        '<button class="btn-accept-zone" data-action="accept-workshop" data-order="' + esc(o.id) + '">' + icon('check', 20) + ' Принять заказ в цех</button>' +
+        '<button class="btn btn-danger btn-block" data-action="decline-workshop" data-order="' + esc(o.id) + '">' + icon('x', 18) + ' Отклонить</button>'
+        :
+        '<button class="btn btn-secondary" data-action="open-route" data-order="' + esc(o.id) + '">' + icon('route', 18) + ' Открыть маршрут</button>' +
+        '<button class="btn btn-secondary" data-action="open-chat" data-order="' + esc(o.id) + '">' + icon('chat', 18) + ' Чат с клиентом</button>');
+  }
+
+  return '' +
+  '<article class="card order-card' + (ui.selectedOrderId === o.id ? ' is-selected' : '') + '">' +
+    '<div class="oc-top">' +
+      '<div class="col gap-4">' +
+        '<div class="oc-id">Заказ ' + esc(o.id) + '</div>' +
+        '<div class="oc-title">' + o.qty + ' ' + chickenWord(o.qty) + '</div>' +
+        '<div class="oc-sub">' + money(o.pricePer) + ' за 1 курицу · итого ' + money(orderTotal(o)) + '</div>' +
+      '</div>' +
+      '<div class="col gap-8" style="align-items:flex-end;">' +
+        '<span class="badge ' + sb.cls + ' stamp"><span class="dot"></span>' + esc(sb.text) + '</span>' +
+        '<span class="badge ' + wb.cls + '">' + esc(wb.text) + '</span>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="route-row">' +
+      '<div class="route-line"></div>' +
+      '<div class="route-points" style="flex:1;">' +
+        '<div class="rp-item"><div class="t-label">Погрузка</div><div class="rp-val">' + esc(o.pickup) + '</div></div>' +
+        '<div class="rp-item"><div class="t-label">Чистка (цех)</div><div class="rp-val">' + esc((workshop && workshop.address) ? workshop.address : 'Москва, ул. Братиславская, 18') + '</div></div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="meta-grid">' +
+      '<div class="mg-item"><div class="t-label">Количество</div><div class="mg-val">' + o.qty + ' шт</div></div>' +
+      '<div class="mg-item"><div class="t-label">Цена за 1 курицу</div><div class="mg-val accent">' + money(o.pricePer) + '</div></div>' +
+      '<div class="mg-item"><div class="t-label">Итого для перевозчика</div><div class="mg-val">' + money(orderTotal(o)) + '</div></div>' +
+    '</div>' +
+
+    (o.comment ? '<div class="t-body" style="font-size:13px;">Комментарий: «' + esc(o.comment) + '»</div>' : '') +
+
+    personRow(client, '<span class="badge badge-muted">Клиент</span>') +
+    (carrier ? personRow(carrier, '<span class="badge badge-muted">Перевозчик</span>') :
+      '<div class="person-row"><div class="pr-main"><div class="pr-name muted">Перевозчик не назначен</div><div class="pr-phone">Заказ ждёт отклика</div></div></div>') +
+    (opts.mode !== 'workshop' && workshop ? personRow(workshop, '<span class="badge badge-muted">Чистка</span>') : '') +
+
+    '<div class="oc-actions">' + actions + '</div>' +
+  '</article>';
+}
+
+/* ============================================================
+   8. ENTRY / REGISTRATION VIEW
+   ============================================================ */
+function stepperHtml(){
+  var labels = ['Телефон', 'Код из SMS', 'Имя и реквизиты', 'Роль'];
+  var step = ui.reg.step;
+  var html = '<div class="stepper">';
+  labels.forEach(function(l, i){
+    if (i > 0) html += '<div class="step-sep"></div>';
+    var cls = i === step ? 'is-active' : (i < step ? 'is-done' : '');
+    html += '<div class="step ' + cls + '"><span class="sn">' + (i < step ? '✓' : (i + 1)) + '</span>' + esc(l) + '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function registrationPanelHtml(){
+  var r = ui.reg;
+  var err = r.errors || {};
+  var body = '';
+
+  if (ui.mode === 'login') {
+    body =
+      '<div class="reg-card">' +
+        '<div class="col gap-8">' +
+          '<div class="t-label t-label-amber">Вход</div>' +
+          '<h2 class="t-heading">Войти по номеру</h2>' +
+          '<p class="t-body">Введите номер, на который был зарегистрирован профиль. Код придёт в SMS.</p>' +
+        '</div>' +
+        '<form class="field-group" data-form="login" novalidate>' +
+          '<div class="field">' +
+            '<label class="t-label" for="login-phone">Номер телефона</label>' +
+            '<input class="input input-num" id="login-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+7 (___) ___-__-__" value="' + esc(fmtPhone(ui.login.phone || '7')) + '" data-phone>' +
+            '<div class="err">' + esc(err.phone || '') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Получить код' + icon('send', 18) + '</button>' +
+        '</form>' +
+        '<button class="btn-link" data-action="switch-mode" data-mode="register">Нет аккаунта? Регистрация по номеру</button>' +
+      '</div>';
+    return body;
+  }
+
+  if (r.step === 0) {
+    body =
+      '<div class="reg-card">' +
+        '<div class="col gap-8">' +
+          '<div class="t-label t-label-amber">Шаг 1 · Телефон</div>' +
+          '<h2 class="t-heading">Регистрация по номеру</h2>' +
+          '<p class="t-body">Российский номер в формате +7. На него придёт код подтверждения.</p>' +
+        '</div>' +
+        '<form class="field-group" data-form="reg-phone" novalidate>' +
+          '<div class="field">' +
+            '<label class="t-label" for="reg-phone">Номер телефона</label>' +
+            '<input class="input input-num" id="reg-phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="+7 (___) ___-__-__" value="' + esc(fmtPhone(r.phone || '7')) + '" data-phone>' +
+            '<div class="err">' + esc(err.phone || '') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Получить код' + icon('send', 18) + '</button>' +
+        '</form>' +
+        '<button class="btn-link" data-action="switch-mode" data-mode="login">У меня уже есть аккаунт</button>' +
+      '</div>';
+    return body;
+  }
+
+  if (r.step === 1) {
+    body =
+      '<div class="reg-card">' +
+        '<div class="col gap-8">' +
+          '<div class="t-label t-label-amber">Шаг 2 · Код из SMS</div>' +
+          '<h2 class="t-heading">Подтвердите номер</h2>' +
+          '<p class="t-body">Мы отправили код на <span class="t-data">' + esc(fmtPhone(r.phone)) + '</span></p>' +
+        '</div>' +
+        '<div class="code-row">' +
+          '<div class="mock-code">' + icon('info', 16) + ' Демо-код: ' + esc(r.codeSent || '') + '</div>' +
+          '<button class="btn-link" data-action="resend-code">Отправить код ещё раз</button>' +
+        '</div>' +
+        '<form class="field-group" data-form="reg-code" novalidate>' +
+          '<div class="field">' +
+            '<label class="t-label" for="reg-code">Код из SMS</label>' +
+            '<input class="input input-num" id="reg-code" name="code" inputmode="numeric" maxlength="4" placeholder="••••" value="' + esc(r.code) + '" style="letter-spacing:0.4em;font-size:20px;">' +
+            '<div class="err">' + esc(err.code || '') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Подтвердить' + icon('check', 18) + '</button>' +
+        '</form>' +
+        '<button class="btn-link" data-action="reg-back">Изменить номер</button>' +
+      '</div>';
+    return body;
+  }
+
+  if (r.step === 2) {
+    body =
+      '<div class="reg-card">' +
+        '<div class="col gap-8">' +
+          '<div class="t-label t-label-amber">Шаг 3 · Профиль</div>'          +
+          '<h2 class="t-heading">Имя и реквизиты</h2>' +
+          '<p class="t-body">Реквизиты нужны для переводов между клиентом, перевозчиком и цехом. Их видят только участники заказа.</p>' +
+        '</div>' +
+        '<form class="field-group" data-form="reg-profile" novalidate>' +
+          '<div class="field">' +
+            '<label class="t-label" for="reg-name">Ваше имя</label>' +
+            '<input class="input" id="reg-name" name="name" placeholder="Например: Иван Соколов" value="' + esc(r.name) + '">' +
+            '<div class="err">' + esc(err.name || '') + '</div>' +
+          '</div>' +
+          '<div class="field-row">' +
+            '<div class="field">' +
+              '<label class="t-label" for="reg-bank">Банк</label>' +
+              '<input class="input" id="reg-bank" name="bank" placeholder="Например: Сбербанк" value="' + esc(r.bank) + '">' +
+              '<div class="err">' + esc(err.bank || '') + '</div>' +
+            '</div>' +
+            '<div class="field">' +
+              '<label class="t-label" for="reg-card">Номер карты или счёта</label>' +
+              '<input class="input input-num" id="reg-card" name="card" inputmode="numeric" placeholder="0000 0000 0000 0000" value="' + esc(fmtCardFull(r.card)) + '" data-card>' +
+              '<div class="err">' + esc(err.card || '') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="field">' +
+            '<label class="t-label" for="reg-recipient">Получатель</label>' +
+            '<input class="input" id="reg-recipient" name="recipient" placeholder="ФИО или название организации" value="' + esc(r.recipient) + '">' +
+            '<div class="hint">Так подпишут платёж в банковском приложении.</div>' +
+            '<div class="err">' + esc(err.recipient || '') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-primary btn-block" type="submit">Дальше — выбор роли' + icon('check', 18) + '</button>' +
+        '</form>' +
+        '<button class="btn-link" data-action="reg-back">Назад</button>' +
+      '</div>';
+    return body;
+  }
+
+  /* step 3 — role */
+  var roles = ['client', 'carrier', 'workshop'];
+  var options = roles.map(function(role){
+    var isOn = r.role === role;
+    return '<button type="button" class="role-option' + (isOn ? ' is-on' : '') + '" data-action="pick-role" data-role="' + role + '">' +
+      '<div class="ro-icon">' + icon(role === 'client' ? 'user' : role === 'carrier' ? 'truck' : 'workshop', 22) + '</div>' +
+      '<div>' +
+        '<div class="ro-title">' + esc(ROLE_LABEL[role]) + '</div>' +
+        '<div class="ro-desc">' + esc(ROLE_DESC[role]) + '</div>' +
+      '</div>' +
+    '</button>';
+  }).join('');
+
+  body =
+    '<div class="reg-card">' +
+      '<div class="col gap-8">' +
+        '<div class="t-label t-label-amber">Шаг 4 · Роль</div>' +
+        '<h2 class="t-heading">Кем вы работаете?</h2>' +
+        '<p class="t-body">Роль можно сменить позже в профиле — данные и реквизиты сохранятся.</p>' +
+      '</div>' +
+      '<div class="role-select-list">' + options + '</div>' +
+      '<div class="err">' + esc(err.role || '') + '</div>' +
+      '<button class="btn btn-primary btn-block" data-action="finish-reg"' + (r.role ? '' : ' disabled') + '>Создать профиль' + icon('check', 18) + '</button>' +
+      '<button class="btn-link" data-action="reg-back">Назад</button>' +
+    '</div>';
+  return body;
+}
+
+function renderEntry(){
+  var app = $('#app');
+  app.innerHTML =
+  '<div class="entry">' +
+    '<header class="entry-bar">' +
+      '<div class="brand">' +
+        '<div class="brand-mark">' + icon('chicken', 20) + '</div>' +
+        '<div class="brand-name">Куро<em>воз</em></div>' +
+      '</div>' +
+      '<div class="row-wrap">' +
+        '<span class="t-label">Телефон, реквизиты, имя — всегда на виду</span>' +
+        '<button class="btn btn-secondary" data-action="switch-mode" data-mode="' + (ui.mode === 'login' ? 'register' : 'login') + '">' +
+          (ui.mode === 'login' ? 'Регистрация' : 'Вход') +
+        '</button>' +
+      '</div>' +
+    '</header>' +
+    '<div class="entry-main">' +
+      '<section class="entry-copy">' +
+        '<div class="col gap-16">' +
+          '<div class="t-label t-label-amber">Логистическая станция · курицы</div>' +
+          '<h1 class="t-display">Курицы едут.<br>Всё под контролем.</h1>' +
+          '<p class="t-body" style="max-width:44ch;">Заказы, перевозка и приёмка куриц в одном окне. Клиент назначает цену за курицу, перевозчик принимает заказ, чистка видит, сколько приедет и когда.</p>' +
+        '</div>' +
+        '<div class="entry-actions">' +
+          '<button class="btn btn-primary" data-action="switch-mode" data-mode="register">' + icon('phone', 18) + ' Регистрация по номеру</button>' +
+          '<button class="btn-link" data-action="switch-mode" data-mode="login">У меня уже есть аккаунт</button>' +
+        '</div>' +
+        '<div class="entry-role-marks">' +
+          '<div class="role-mark"><div class="rm-icon">' + icon('user', 20) + '</div><div><h3>Клиент</h3><div class="t-body" style="font-size:13px;">Заказывает N куриц и назначает цену перевозчику за 1 курицу.</div></div></div>' +
+          '<div class="role-mark"><div class="rm-icon">' + icon('truck', 20) + '</div><div><h3>Перевозчик</h3><div class="t-body" style="font-size:13px;">Принимает заказ из уведомлений, везёт куриц в цех и получает деньги.</div></div></div>' +
+          '<div class="role-mark"><div class="rm-icon">' + icon('workshop', 20) + '</div><div><h3>Чистка</h3><div class="t-body" style="font-size:13px;">Видит, сколько куриц приедет, кто везёт и через сколько минут они будут в цеху.</div></div></div>' +
+        '</div>' +
+      '</section>' +
+      '<section class="entry-map-wrap">' +
+        entryMapHtml() +
+        (ui.mode === 'login' || ui.reg.step >= 0 ?
+          '<div>' + stepperHtml() + '<div class="mt-16">' + registrationPanelHtml() + '</div></div>'
+          : '') +
+      '</section>' +
+    '</div>' +
+    '<footer class="entry-bar" style="border-top:1px solid var(--border);border-bottom:0;">' +
+      '<div class="t-label">КУРОВОЗ · демо-стенд · данные хранятся в вашем браузере</div>' +
+      '<div class="t-label">Чат для согласования цены · живая карта · реквизиты</div>' +
+    '</footer>' +
+  '</div>';
+
+  if (ui.mode === 'login') {
+    var st = $('.stepper');
+    if (st) st.style.display = 'none';
+  }
+  mountLiveMaps();
+  positionTrucks(false);
+  var firstInput = $('.reg-card input');
+  if (firstInput) firstInput.focus();
+}
+
+/* ============================================================
+   9. SHELL CHROME
+   ============================================================ */
+function railHtml(){
+  var me = currentUser();
+  var nav = [
+    { view: 'orders', label: 'Заказы', icon: 'box' },
+    { view: 'map', label: 'Карта', icon: 'pin' },
+    { view: 'chat', label: 'Чат', icon: 'chat' },
+    { view: 'profile', label: 'Профиль', icon: 'user' }
+  ];
+  var navHtml = nav.map(function(n){
+    var active = ui.view === n.view || (n.view === 'chat' && ui.view === 'chat');
+    return '<button class="nav-item' + (active ? ' is-active' : '') + '" data-action="nav" data-view="' + n.view + '">' +
+      icon(n.icon, 20) + ' ' + esc(n.label) + '</button>';
+  }).join('');
+
+  var roleSwitch = (me.roles || [me.role]).map(function(role){
+    return '<button class="rs-btn' + (me.role === role ? ' is-on' : '') + '" data-action="switch-role" data-role="' + role + '">' +
+      icon(role === 'client' ? 'user' : role === 'carrier' ? 'truck' : 'workshop', 18) + ' ' + esc(ROLE_LABEL[role]) + '</button>';
+  }).join('');
+
+  return '' +
+  '<aside class="rail">' +
+    '<div class="brand">' +
+      '<div class="brand-mark">' + icon('chicken', 20) + '</div>' +
+      '<div class="brand-name">Куро<em>воз</em></div>' +
+    '</div>' +
+    '<div class="rail-role">' +
+      '<div class="rr-row">' +
+        '<div class="t-label">Роль</div>' +
+        '<div class="badge badge-new">' + esc(ROLE_LABEL[me.role]) + '</div>' +
+      '</div>' +
+      '<div class="t-strong" style="font-size:13px;">' + esc(me.name) + '</div>' +
+      '<div class="t-data" style="font-size:12px;color:var(--ink-muted);">' + esc(fmtPhone(me.phone)) + '</div>' +
+    '</div>' +
+    '<nav class="rail-nav" aria-label="Разделы">' + navHtml + '</nav>' +
+    '<div class="rail-foot">' +
+      '<div class="t-label">Сменить роль</div>' +
+      '<div class="role-switch">' + roleSwitch + '</div>' +
+      '<button class="btn btn-secondary btn-block" data-action="logout">' + icon('logout', 18) + ' Выйти</button>' +
+    '</div>' +
+  '</aside>';
+}
+
+function utilBarHtml(){
+  var me = currentUser();
+  var unread = unreadCount();
+  return '' +
+  '<header class="utilbar">' +
+    '<div class="util-left">' +
+      '<div class="util-role">' + icon(me.role === 'client' ? 'user' : me.role === 'carrier' ? 'truck' : 'workshop', 16) + ' ' + esc(ROLE_LABEL[me.role]) + '</div>' +
+      '<div class="t-label">Текущая смена · ' + esc(fmtTime(now())) + '</div>' +
+    '</div>' +
+    '<div class="util-right">' +
+      '<div class="util-user">' +
+        '<div class="avatar">' + esc(me.name.charAt(0).toUpperCase()) + '</div>' +
+        '<div class="col" style="gap:2px;min-width:0;">' +
+          '<div class="uu-name">' + esc(me.name) + '</div>' +
+          '<div class="uu-phone">' + esc(fmtPhone(me.phone)) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="icon-btn" data-action="toggle-notif" aria-label="Уведомления' + (unread ? ', есть непрочитанные' : '') + '">' +
+        icon('bell', 20) + (unread ? '<span class="unread"></span>' : '') +
+      '</button>' +
+    '</div>' +
+  '</header>';
+}
+
+function mobileTopHtml(){
+  var me = currentUser();
+  var unread = unreadCount();
+  return '' +
+  '<header class="mobile-top">' +
+    '<button class="btn-ghost" data-action="toggle-menu" aria-label="Меню">' + icon('menu', 22) + '</button>' +
+    '<div class="brand">' +
+      '<div class="brand-mark" style="width:28px;height:28px;">' + icon('chicken', 16) + '</div>' +
+      '<div class="brand-name" style="font-size:20px;">Куро<em>воз</em></div>' +
+    '</div>' +
+    '<button class="icon-btn" data-action="toggle-notif" aria-label="Уведомления">' + icon('bell', 20) + (unread ? '<span class="unread"></span>' : '') + '</button>' +
+  '</header>';
+}
+
+function bottomNavHtml(){
+  var nav = [
+    { view: 'orders', label: 'Заказы', icon: 'box' },
+    { view: 'map', label: 'Карта', icon: 'pin' },
+    { view: 'chat', label: 'Чат', icon: 'chat' },
+    { view: 'profile', label: 'Профиль', icon: 'user' }
+  ];
+  return '<nav class="bottomnav" aria-label="Мобильная навигация">' + nav.map(function(n){
+    var active = ui.view === n.view;
+    return '<button class="bn-item' + (active ? ' is-active' : '') + '" data-action="nav" data-view="' + n.view + '">' +
+      icon(n.icon, 20) + '<span>' + esc(n.label) + '</span></button>';
+  }).join('') + '</nav>';
+}
+
+function notifDrawerHtml(){
+  if (!ui.drawerOpen) return '';
+  var list = myNotifications();
+  var rows = list.length ? list.map(function(n){
+    return '<div class="notif-row' + (n.read ? '' : ' is-unread') + '">' +
+      '<div class="nr-text">' + esc(n.text) + '</div>' +
+      '<div class="nr-meta">' +
+        '<span class="nr-time">' + esc(timeAgo(n.ts)) + (n.orderId ? ' · ' + esc(n.orderId) : '') + '</span>' +
+        (n.orderId && orderById(n.orderId) ?
+          '<button class="btn-link" data-action="open-order-from-notif" data-order="' + esc(n.orderId) + '">Открыть</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('') : '<div class="empty" style="margin:20px;">' + icon('bell', 24) + '<div class="t-body">Уведомлений пока нет</div></div>';
+
+  return '<div class="drawer-backdrop" data-action="close-overlay"></div>' +
+  '<aside class="drawer" role="dialog" aria-label="Уведомления">' +
+    '<div class="drawer-head">' +
+      '<div class="t-heading-sm">Уведомления</div>' +
+      '<button class="icon-btn" data-action="close-overlay" aria-label="Закрыть">' + icon('x', 20) + '</button>' +
+    '</div>' +
+    '<div class="drawer-body">' + rows + '</div>' +
+    '<div class="drawer-foot">' +
+      '<button class="btn btn-secondary" style="flex:1" data-action="mark-read-all">Прочитать все</button>' +
+      '<button class="btn btn-secondary" style="flex:1" data-action="clear-notif">Очистить</button>' +
+    '</div>' +
+  '</aside>';
+}
+
+function menuSheetHtml(){
+  if (!ui.menuOpen) return '';
+  var me = currentUser();
+  var roles = (me.roles || [me.role]).map(function(role){
+    return '<button class="rs-btn' + (me.role === role ? ' is-on' : '') + '" data-action="switch-role" data-role="' + role + '">' +
+      icon(role === 'client' ? 'user' : role === 'carrier' ? 'truck' : 'workshop', 18) + ' ' + esc(ROLE_LABEL[role]) + '</button>';
+  }).join('');
+  return '<div class="menu-sheet" data-action="close-overlay">' +
+    '<div class="ms-panel" data-stop="1">' +
+      '<div class="row" style="justify-content:space-between;">' +
+        '<div class="brand"><div class="brand-mark">' + icon('chicken', 20) + '</div><div class="brand-name">Куро<em>воз</em></div></div>' +
+        '<button class="icon-btn" data-action="close-overlay" aria-label="Закрыть">' + icon('x', 20) + '</button>' +
+      '</div>' +
+      '<div class="panel" style="padding:16px;">' +
+        '<div class="t-label">Профиль</div>' +
+        '<div class="t-strong mt-8">' + esc(me.name) + '</div>' +
+        '<div class="t-data muted">' + esc(fmtPhone(me.phone)) + '</div>' +
+        '<div class="badge badge-new mt-8">' + esc(ROLE_LABEL[me.role]) + '</div>' +
+      '</div>' +
+      '<div class="t-label">Сменить роль</div>' +
+      '<div class="role-switch">' + roles + '</div>' +
+      '<button class="btn btn-secondary btn-block" data-action="logout">' + icon('logout', 18) + ' Выйти</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function dialogHtml(){
+  if (!ui.dialog) return '';
+  var d = ui.dialog;
+  return '<div class="dialog-wrap" data-action="close-overlay">' +
+    '<div class="dialog" data-stop="1" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '">' +
+      '<div class="col gap-8">' +
+        '<div class="t-label ' + (d.kind === 'alert' ? 'red' : 't-label-amber') + '">' + esc(d.kind === 'alert' ? 'Внимание' : 'Подтверждение') + '</div>' +
+        '<h2 class="t-heading">' + esc(d.title) + '</h2>' +
+        '<p class="t-body">' + esc(d.text) + '</p>' +
+      '</div>' +
+      '<div class="dialog-actions">' +
+        '<button class="btn ' + (d.kind === 'alert' ? 'btn-danger' : 'btn-primary') + '" data-action="dialog-confirm">' + esc(d.confirmText || 'Подтвердить') + '</button>' +
+        '<button class="btn btn-secondary" data-action="close-overlay">Отмена</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+/* ============================================================
+   10. VIEWS
+   ============================================================ */
+function viewClient(){
+  var me = currentUser();
+  var orders = clientOrders();
+  var active = orders.filter(function(o){ return o.state !== 'done' && o.state !== 'cancelled'; });
+  var history = orders.filter(function(o){ return o.state === 'done' || o.state === 'cancelled'; });
+
+  var newOrderForm = ui.newOrderOpen ? (
+    '<form class="panel mt-16 field-group" data-form="new-order" novalidate id="new-order-form">' +
+      '<div class="row" style="justify-content:space-between;">' +
+        '<div class="t-label t-label-amber">Новый заказ</div>' +
+        '<button type="button" class="btn-ghost" data-action="toggle-new-order">' + icon('x', 18) + ' Закрыть</button>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field">' +
+          '<label class="t-label" for="no-qty">Количество куриц</label>' +
+          '<div class="suffix-wrap">' +
+            '<input class="input input-num js-calc" id="no-qty" name="qty" inputmode="numeric" placeholder="120" value="120">' +
+            '<span class="suffix">шт</span>' +
+          '</div>' +
+          '<div class="err" data-err="qty"></div>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="t-label" for="no-price">Цена перевозчику за 1 курицу</label>' +
+          '<div class="suffix-wrap">' +
+            '<input class="input input-num js-calc" id="no-price" name="price" inputmode="numeric" placeholder="15" value="15">' +
+            '<span class="suffix">₽</span>' +
+          '</div>' +
+          '<div class="err" data-err="price"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="panel" style="background:var(--surface-2);padding:16px;">' +
+        '<div class="t-label">Итого для перевозчика</div>' +
+        '<div class="big-num-row mt-8">' +
+          '<div class="t-metric amber js-total">1 800 ₽</div>' +
+          '<div class="t-body" style="font-size:13px;">Цена за 1 курицу × Количество куриц</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="no-pickup">Адрес получения</label>' +
+        '<input class="input" id="no-pickup" name="pickup" placeholder="Москва, ул. Ленина, 24">' +
+        '<div class="err" data-err="pickup"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="no-workshop">Адрес чистки (цех)</label>' +
+        '<input class="input" id="no-workshop" name="workshop" value="Москва, ул. Братиславская, 18">' +
+        '<div class="hint">Заказ уйдёт перевозчикам и в цех — цех увидит его в уведомлениях.</div>' +
+        '<div class="err" data-err="workshop"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="no-comment">Комментарий</label>' +
+        '<textarea class="textarea" id="no-comment" name="comment" placeholder="Например: звонить за 10 минут, клетки у подъезда"></textarea>' +
+      '</div>' +
+      '<div class="row-wrap">' +
+        '<button class="btn btn-primary" type="submit">' + icon('send', 18) + ' Отправить заказ перевозчикам и в цех</button>' +
+        '<button class="btn btn-secondary" type="button" data-action="toggle-new-order">Отмена</button>' +
+      '</div>' +
+    '</form>'
+  ) : '';
+
+  var focusOrder = active.filter(function(o){ return o.state === 'in_transit' || o.state === 'accepted'; })[0] || active[0] || orders[0];
+
+  return '' +
+  '<div class="page-head">' +
+    '<div class="ph-row">' +
+      '<div class="col gap-8">' +
+        '<div class="t-label t-label-amber">Рабочая станция</div>' +
+        '<h1 class="t-display-sm">Заказ</h1>' +
+        '<p class="t-body">Соберите заказ и назначьте цену перевозчику.</p>' +
+      '</div>' +
+      '<button class="btn btn-primary" data-action="toggle-new-order" style="border:1px solid var(--voltage);">' + icon('plus', 18) + ' Новый заказ</button>' +
+    '</div>' +
+    newOrderForm +
+  '</div>' +
+
+  '<div class="work-grid">' +
+    '<div class="col gap-16">' +
+      '<div class="section-head">' +
+        '<div class="t-label">Активные заказы · ' + active.length + '</div>' +
+        '<div class="t-data muted">' + esc(fmtTime(now())) + '</div>' +
+      '</div>' +
+      (active.length ?
+        '<div class="order-list">' + active.map(function(o, i){
+          return '<div class="intake intake-' + Math.min(3, i + 1) + '">' + orderCardHtml(o, { mode: 'client' }) + '</div>';
+        }).join('') + '</div>'
+        : '<div class="empty">' + icon('box', 24) + '<div class="t-body">Активных заказов нет</div><button class="btn btn-primary" data-action="toggle-new-order">Создать первый заказ</button></div>') +
+
+      (history.length ?
+        '<div class="section">' +
+          '<div class="section-head"><div class="t-label">История</div></div>' +
+          '<div class="order-list">' + history.map(function(o){ return orderCardHtml(o, { mode: 'client' }); }).join('') + '</div>' +
+        '</div>' : '') +
+    '</div>' +
+    '<div class="col gap-16">' +
+      (focusOrder ? mapHtmlForOrder(focusOrder, { animate: true }) : overviewMapHtml()) +
+      '<div class="panel">' +
+        '<div class="t-label">Как это работает</div>' +
+        '<div class="kv-list mt-8">' +
+          '<div class="kv"><span class="kv-k">1. Заявка</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Вы указываете количество и цену за 1 курицу</span></div>' +
+          '<div class="kv"><span class="kv-k">2. Перевозчик</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Принимает заказ и везёт куриц в цех</span></div>' +
+          '<div class="kv"><span class="kv-k">3. Чистка</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Видит прибытие на карте и принимает партию</span></div>' +
+          '<div class="kv"><span class="kv-k">4. Оплата</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Перевод по реквизитам из профиля перевозчика</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function viewCarrier(){
+  var me = currentUser();
+  var incoming = carrierIncoming();
+  var active = carrierActive();
+  var done = DB.orders.filter(function(o){
+    return o.carrierId === me.id && o.state === 'done';
+  });
+  var earned = done.reduce(function(s, o){ return s + orderTotal(o); }, 0) +
+    active.reduce(function(s, o){ return s + orderTotal(o); }, 0);
+
+  var focusOrder = active[0] || incoming[0];
+
+  return '' +
+  '<div class="page-head">' +
+    '<div class="ph-row">' +
+      '<div class="col gap-8">' +
+        '<div class="t-label t-label-amber">Рабочая станция</div>' +
+        '<h1 class="t-display-sm">Работа</h1>' +
+        '<p class="t-body">Принимайте заказы, которые вам удобно везти.</p>' +
+      '</div>' +
+      '<div class="row-wrap">' +
+        '<button class="btn btn-secondary" data-action="nav" data-view="chat">' + icon('chat', 18) + ' Чаты</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="metric-band">' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">Новых заказов</div>' +
+        '<div class="t-metric accent">' + incoming.length + '</div>' +
+        '<div class="t-body" style="font-size:13px;">ждут перевозчика</div>' +
+      '</div>' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">В пути</div>' +
+        '<div class="t-metric">' + active.length + '</div>' +
+        '<div class="t-body" style="font-size:13px;">активных рейсов</div>' +
+      '</div>' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">Заработок</div>' +
+        '<div class="t-metric">' + money(earned) + '</div>' +
+        '<div class="t-body" style="font-size:13px;">с учётом активных заказов</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+
+  '<div class="work-grid">' +
+    '<div class="col gap-16">' +
+      '<div class="section-head">' +
+        '<div class="t-label">Входящие заказы · ' + incoming.length + '</div>' +
+        '<div class="badge badge-new"><span class="dot"></span>Уведомления включены</div>' +
+      '</div>' +
+      (incoming.length ?
+        '<div class="order-list">' + incoming.map(function(o, i){
+          return '<div class="intake intake-' + Math.min(3, i + 1) + '">' + orderCardHtml(o, { mode: 'carrier-incoming' }) + '</div>';
+        }).join('') + '</div>'
+        : '<div class="empty">' + icon('truck', 24) + '<div class="t-body">Новых заказов нет. Уведомление придёт, как только клиент создаст заявку.</div></div>') +
+
+      (active.length ?
+        '<div class="section">' +
+          '<div class="section-head"><div class="t-label">Активные рейсы</div></div>' +
+          '<div class="order-list">' + active.map(function(o){ return orderCardHtml(o, { mode: 'carrier-active' }); }).join('') + '</div>' +
+        '</div>' : '') +
+
+      (done.length ?
+        '<div class="section">' +
+          '<div class="section-head"><div class="t-label">Завершённые</div></div>' +
+          '<div class="order-list">' + done.map(function(o){ return orderCardHtml(o, { mode: 'carrier-active' }); }).join('') + '</div>' +
+        '</div>' : '') +
+    '</div>' +
+    '<div class="col gap-16">' +
+      (focusOrder ? mapHtmlForOrder(focusOrder, { animate: true }) : overviewMapHtml()) +
+      '<div class="panel">' +
+        '<div class="t-label">Ваши реквизиты для оплаты</div>' +
+        '<div class="kv-list mt-8">' +
+          '<div class="kv"><span class="kv-k">Имя</span><span class="kv-v">' + esc(me.name) + '</span></div>' +
+          '<div class="kv"><span class="kv-k">Телефон</span><span class="kv-v">' + esc(fmtPhone(me.phone)) + '</span></div>' +
+          '<div class="kv"><span class="kv-k">Банк</span><span class="kv-v">' + esc(me.bank) + '</span></div>' +
+          '<div class="kv"><span class="kv-k">Карта</span><span class="kv-v">' + esc(maskCard(me.card)) + '</span></div>' +
+        '</div>' +
+        '<button class="btn btn-secondary btn-block mt-16" data-action="nav" data-view="profile">' + icon('edit', 18) + ' Редактировать профиль</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function viewWorkshop(){
+  var me = currentUser();
+  var incoming = workshopIncoming();
+  var history = workshopHistory();
+  var waiting = incoming.reduce(function(s, o){ return s + o.qty; }, 0);
+  var todayCount = DB.orders.filter(function(o){
+    return o.workshopId === me.id && (now() - o.createdAt) < 1000 * 60 * 60 * 24;
+  }).length;
+  var moving = incoming.filter(function(o){ return o.state === 'in_transit' || o.state === 'accepted'; })
+    .sort(function(a, b){ return etaMinutes(a) - etaMinutes(b); });
+  var nearest = moving[0];
+
+  var focusOrder = nearest || incoming[0];
+
+  return '' +
+  '<div class="page-head">' +
+    '<div class="ph-row">' +
+      '<div class="col gap-8">' +
+        '<div class="t-label t-label-amber">Рабочая станция</div>' +
+        '<h1 class="t-display-sm">Цех</h1>' +
+        '<p class="t-body">Знайте, сколько куриц приедет и когда.</p>' +
+      '</div>' +
+      '<div class="row-wrap">' +
+        '<span class="badge badge-new"><span class="dot"></span>Приёмка открыта</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="metric-band">' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">Куриц ожидают чистки</div>' +
+        '<div class="t-metric accent">' + waiting + '</div>' +
+        '<div class="t-body" style="font-size:13px;">' + plural(waiting, ['курица', 'курицы', 'куриц']) + ' в активных заказах</div>' +
+      '</div>' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">Заказов сегодня</div>' +
+        '<div class="t-metric">' + todayCount + '</div>' +
+        '<div class="t-body" style="font-size:13px;">поступило в цех</div>' +
+      '</div>' +
+      '<div class="metric-cell">' +
+        '<div class="t-label">Ближайшее прибытие</div>' +
+        '<div class="t-metric' + (nearest ? ' accent' : '') + '">' + (nearest ? etaMinutes(nearest) : '—') + (nearest ? '<small>мин</small>' : '') + '</div>' +
+        '<div class="t-body" style="font-size:13px;">' + (nearest ? esc(nearest.id) + ' · ' + nearest.qty + ' ' + chickenWord(nearest.qty) : 'маршрутов в пути нет') + '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+
+  (focusOrder ? '<div class="mb-16" style="margin-bottom:32px;">' + mapHtmlForOrder(focusOrder, { animate: true }) + '</div>' : '') +
+
+  '<div class="section-head">' +
+    '<div class="t-label">Входящие партии · ' + incoming.length + '</div>' +
+    '<div class="t-data muted">Принимайте или отклоняйте заказ</div>' +
+  '</div>' +
+  (incoming.length ?
+    '<div class="order-list">' + incoming.map(function(o, i){
+      return '<div class="intake intake-' + Math.min(3, i + 1) + '">' + orderCardHtml(o, { mode: 'workshop' }) + '</div>';
+    }).join('') + '</div>'
+    : '<div class="empty">' + icon('workshop', 24) + '<div class="t-body">Входящих партий нет</div></div>') +
+
+  (history.length ?
+    '<div class="section">' +
+      '<div class="section-head"><div class="t-label">История цеха</div></div>' +
+      '<div class="order-list">' + history.map(function(o){ return orderCardHtml(o, { mode: 'workshop' }); }).join('') + '</div>' +
+    '</div>' : '');
+}
+
+function viewMap(){
+  var list = myOrders().filter(function(o){ return o.state !== 'cancelled'; });
+  var focus = list.filter(function(o){ return o.state === 'in_transit' || o.state === 'accepted'; })[0] || list[0];
+  return '' +
+  '<div class="page-head">' +
+    '<div class="col gap-8">' +
+      '<div class="t-label t-label-amber">Пространство</div>' +
+      '<h1 class="t-display-sm">Карта</h1>' +
+      '<p class="t-body">Живое положение перевозчика и маршрут до цеха.</p>' +
+    '</div>' +
+  '</div>' +
+  (focus ? mapHtmlForOrder(focus, { animate: true }) : overviewMapHtml()) +
+  '<div class="section">' +
+    '<div class="section-head"><div class="t-label">Маршруты смены</div></div>' +
+    (list.length ?
+      '<div class="order-list">' + list.map(function(o){
+        return '<button class="card row" style="width:100%;text-align:left;justify-content:space-between;gap:16px;" data-action="open-route" data-order="' + esc(o.id) + '">' +
+          '<div class="col gap-4">' +
+            '<div class="oc-id">' + esc(o.id) + '</div>' +
+            '<div class="t-strong">' + o.qty + ' ' + chickenWord(o.qty) + ' · ' + money(o.pricePer) + ' / шт</div>' +
+            '<div class="t-body" style="font-size:13px;">' + esc(o.pickup) + ' → ' + esc((userById(o.workshopId) || {}).address || 'Цех') + '</div>' +
+          '</div>' +
+          '<div class="col gap-8" style="align-items:flex-end;">' +
+            '<span class="badge ' + stateBadge(o).cls + '">' + esc(stateBadge(o).text) + '</span>' +
+            '<span class="t-data amber">' + etaMinutes(o) + ' мин</span>' +
+          '</div>' +
+        '</button>';
+      }).join('') + '</div>'
+      : '<div class="empty">' + icon('pin', 24) + '<div class="t-body">Маршрутов пока нет</div></div>') +
+  '</div>';
+}
+
+function viewChat(){
+  var me = currentUser();
+  var convs = myOrders().filter(function(o){
+    return o.clientId === me.id || o.carrierId === me.id || o.workshopId === me.id;
+  });
+
+  if (!ui.chatOrderId && convs.length) ui.chatOrderId = convs[0].id;
+  var current = ui.chatOrderId ? orderById(ui.chatOrderId) : null;
+
+  var convHtml = convs.map(function(o){
+    var msgs = orderMessages(o.id);
+    var last = msgs[msgs.length - 1];
+    var other = counterpartFor(o);
+    return '<button class="chat-conv' + (current && current.id === o.id ? ' is-on' : '') + '" data-action="open-chat" data-order="' + esc(o.id) + '">' +
+      '<div class="cc-title">' + esc((other && other.name) || 'Заказ ' + o.id) + '</div>' +
+      '<div class="cc-sub">' + esc(o.id) + ' · ' + o.qty + ' ' + chickenWord(o.qty) + '</div>' +
+      '<div class="cc-sub">' + esc(last ? last.text.slice(0, 42) + (last.text.length > 42 ? '…' : '') : 'Нет сообщений') + '</div>' +
+    '</button>';
+  }).join('');
+
+  var threadHtml = '';
+  if (current) {
+    var msgs = orderMessages(current.id);
+    var priceMsgs = msgs.filter(function(m){ return m.priceChip; });
+    var agreed = priceMsgs.length ? priceMsgs[priceMsgs.length - 1] : null;
+    var other = counterpartFor(current);
+
+    threadHtml =
+    '<div class="chat-main">' +
+      '<div class="chat-head">' +
+        '<div class="col gap-4">' +
+          '<div class="t-heading-sm">' + esc((other && other.name) || 'Заказ ' + current.id) + '</div>' +
+          '<div class="t-data muted">' + esc(current.id) + ' · ' + esc(fmtPhone((other || {}).phone || '')) + '</div>' +
+        '</div>' +
+        '<div class="row-wrap">' +
+          '<span class="badge ' + stateBadge(current).cls + '">' + esc(stateBadge(current).text) + '</span>' +
+          '<button class="btn btn-secondary" data-action="open-route" data-order="' + esc(current.id) + '">' + icon('route', 18) + ' Маршрут</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="chat-context">' +
+        '<span class="chip">Решение по цене</span>' +
+        '<span class="t-data">1 курица = ' + money(current.pricePer) + '</span>' +
+        '<span class="muted">·</span>' +
+        '<span class="t-data">' + current.qty + ' ' + chickenWord(current.qty) + ' · итого ' + money(orderTotal(current)) + '</span>' +
+      '</div>' +
+      '<div class="msgs" id="msgs">' +
+        (msgs.length ? msgs.map(function(m){
+          var mine = m.from === me.id;
+          var from = userById(m.from);
+          return '<div class="msg ' + (mine ? 'mine' : 'theirs') + '">' +
+            (m.priceChip ? '<div><span class="chip">Решение по цене</span></div>' : '') +
+            '<div class="m-text">' + esc(m.text) + '</div>' +
+            '<div class="m-meta">' +
+              '<span>' + esc(mine ? 'Вы' : (from ? from.name : '—')) + '</span>' +
+              '<span>' + esc(fmtTime(m.ts)) + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('') : '<div class="empty">' + icon('chat', 24) + '<div class="t-body">Сообщений пока нет. Договоритесь о цене и времени.</div></div>') +
+      '</div>' +
+      '<form class="chat-compose" data-form="chat-send" novalidate>' +
+        '<textarea class="textarea" name="text" rows="1" placeholder="Сообщение по заказу…" aria-label="Сообщение по заказу"></textarea>' +
+        '<button class="btn btn-primary" type="submit">' + icon('send', 18) + ' Отправить</button>' +
+      '</form>' +
+      '<div class="row-wrap" style="padding:0 20px 16px;">' +
+        '<button class="btn btn-secondary" data-action="quick-price" data-order="' + esc(current.id) + '" data-delta="-1">Цена −1 ₽</button>' +
+        '<button class="btn btn-secondary" data-action="quick-price" data-order="' + esc(current.id) + '" data-delta="1">Цена +1 ₽</button>' +
+        '<button class="btn btn-secondary" data-action="quick-price" data-order="' + esc(current.id) + '" data-delta="0">Зафиксировать ' + money(current.pricePer) + '</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  return '' +
+  '<div class="page-head">' +
+    '<div class="col gap-8">' +
+      '<div class="t-label t-label-amber">Согласование</div>' +
+      '<h1 class="t-display-sm">Чат</h1>' +
+      '<p class="t-body">Договоритесь о цене и времени — телефон и реквизиты участников всегда в карточке заказа.</p>' +
+    '</div>' +
+  '</div>' +
+  '<div class="chat-layout">' +
+    '<div class="chat-list">' +
+      '<div class="chat-list-head"><div class="t-label">Заказы</div></div>' +
+      (convs.length ? convHtml : '<div class="empty" style="margin:12px;">' + icon('chat', 22) + '<div class="t-body">Диалогов нет</div></div>') +
+    '</div>' +
+    (threadHtml || '<div class="chat-main"><div class="empty" style="margin:auto;">' + icon('chat', 24) + '<div class="t-body">Выберите заказ слева</div></div></div>') +
+  '</div>';
+}
+
+function viewProfile(){
+  var me = currentUser();
+  var showCard = !!ui.showReq['me-card'];
+  var showEdit = ui.editProfile;
+
+  var profilePanel =
+  '<div class="panel">' +
+    '<div class="row" style="justify-content:space-between;gap:16px;flex-wrap:wrap;">' +
+      '<div class="row">' +
+        '<div class="avatar" style="width:48px;height:48px;font-size:18px;">' + esc(me.name.charAt(0).toUpperCase()) + '</div>' +
+        '<div class="col gap-4">' +
+          '<div class="t-heading">' + esc(me.name) + '</div>' +
+          '<div class="row-wrap">' +
+            '<span class="badge badge-new">' + esc(ROLE_LABEL[me.role]) + '</span>' +
+            (me.roles && me.roles.length > 1 ? '<span class="badge badge-muted">+' + (me.roles.length - 1) + ' ' + plural(me.roles.length - 1, ['роль', 'роли', 'ролей']) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="btn btn-secondary" data-action="toggle-edit-profile">' + icon('edit', 18) + ' Редактировать</button>' +
+    '</div>' +
+    '<div class="kv-list mt-16">' +
+      '<div class="kv"><span class="kv-k">Имя</span><span class="kv-v">' + esc(me.name) + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Телефон</span><span class="kv-v">' + esc(fmtPhone(me.phone)) + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Банк</span><span class="kv-v">' + esc(me.bank) + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Карта / счёт</span><span class="kv-v">' + esc(showCard ? fmtCardFull(me.card) : maskCard(me.card)) + '</span></div>' +
+      '<div class="kv"><span class="kv-k">Получатель</span><span class="kv-v wrap">' + esc(me.recipient) + '</span></div>' +
+      (me.role === 'workshop' || me.address ?
+        '<div class="kv"><span class="kv-k">Адрес цеха</span><span class="kv-v wrap">' + esc(me.address || '—') + '</span></div>' : '') +
+      '<div class="kv"><span class="kv-k">Роль</span><span class="kv-v wrap">' + esc(ROLE_LABEL[me.role]) + '</span></div>' +
+    '</div>' +
+    '<div class="row-wrap mt-16">' +
+      '<button class="btn btn-secondary" data-action="toggle-req" data-user="me-card">' + icon(showCard ? 'eyeOff' : 'eye', 18) + ' ' + (showCard ? 'Скрыть реквизиты' : 'Показать реквизиты') + '</button>' +
+    '</div>' +
+    '<div class="mt-16">' +
+      '<div class="t-label">Сменить роль</div>' +
+      '<div class="row-wrap mt-8">' +
+        (me.roles || [me.role]).map(function(role){
+          return '<button class="btn ' + (me.role === role ? 'btn-primary' : 'btn-secondary') + '" data-action="switch-role" data-role="' + role + '">' +
+            icon(role === 'client' ? 'user' : role === 'carrier' ? 'truck' : 'workshop', 18) + ' ' + esc(ROLE_LABEL[role]) + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+    '<div class="mt-24"><button class="btn btn-secondary btn-block" data-action="logout">' + icon('logout', 18) + ' Выйти из аккаунта</button></div>' +
+  '</div>';
+
+  var editPanel = showEdit ? (
+    '<form class="panel field-group" data-form="edit-profile" novalidate>' +
+      '<div class="row" style="justify-content:space-between;">' +
+        '<div class="t-label t-label-amber">Редактирование профиля</div>' +
+        '<button type="button" class="btn-ghost" data-action="toggle-edit-profile">' + icon('x', 18) + ' Закрыть</button>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="ep-name">Имя</label>' +
+        '<input class="input" id="ep-name" name="name" value="' + esc(me.name) + '">' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field">' +
+          '<label class="t-label" for="ep-bank">Банк</label>' +
+          '<input class="input" id="ep-bank" name="bank" value="' + esc(me.bank) + '">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="t-label" for="ep-card">Номер карты или счёта</label>' +
+          '<input class="input input-num" id="ep-card" name="card" value="' + esc(fmtCardFull(me.card)) + '">' +
+        '</div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="ep-recipient">Получатель</label>' +
+        '<input class="input" id="ep-recipient" name="recipient" value="' + esc(me.recipient) + '">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="t-label" for="ep-address">Адрес цеха (для роли «Чистка»)</label>' +
+        '<input class="input" id="ep-address" name="address" value="' + esc(me.address || '') + '" placeholder="Москва, ул. Братиславская, 18">' +
+      '</div>' +
+      '<button class="btn btn-primary" type="submit">' + icon('check', 18) + ' Сохранить</button>' +
+    '</form>'
+  ) : '';
+
+  var stats = (function(){
+    var mine = myOrders();
+    var totalQty = mine.reduce(function(s, o){ return s + o.qty; }, 0);
+    return '<div class="metric-band">' +
+      '<div class="metric-cell"><div class="t-label">Заказов в работе</div><div class="t-metric accent">' + mine.filter(function(o){ return o.state !== 'done' && o.state !== 'cancelled'; }).length + '</div></div>' +
+      '<div class="metric-cell"><div class="t-label">Куриц в заказах</div><div class="t-metric">' + totalQty + '</div></div>' +
+      '<div class="metric-cell"><div class="t-label">Завершено</div><div class="t-metric">' + mine.filter(function(o){ return o.state === 'done'; }).length + '</div></div>' +
+    '</div>';
+  })();
+
+  return '' +
+  '<div class="page-head">' +
+    '<div class="col gap-8">' +
+      '<div class="t-label t-label-amber">Аккаунт</div>' +
+      '<h1 class="t-display-sm">Профиль</h1>' +
+      '<p class="t-body">Номер телефона, имя и реквизиты видят участники ваших заказов. Для цеха дополнительно виден адрес.</p>' +
+    '</div>' +
+  '</div>' +
+  stats +
+  '<div class="profile-grid">' +
+    '<div class="col gap-24">' + profilePanel + '</div>' +
+    '<div class="col gap-24">' + editPanel +
+      '<div class="panel">' +
+        '<div class="t-label">Кто что видит</div>' +
+        '<div class="kv-list mt-8">' +
+          '<div class="kv"><span class="kv-k">Клиент</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Видит имя, телефон и реквизиты перевозчика и цеха</span></div>' +
+          '<div class="kv"><span class="kv-k">Перевозчик</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Видит имя, телефон и реквизиты клиента</span></div>' +
+          '<div class="kv"><span class="kv-k">Чистка</span><span class="kv-v" style="font-family:var(--font-body);font-weight:400;text-align:right;">Видит имя, телефон и реквизиты клиента, а также карту маршрута</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function workspaceHtml(){
+  if (ui.view === 'map') return viewMap();
+  if (ui.view === 'chat') return viewChat();
+  if (ui.view === 'profile') return viewProfile();
+  var me = currentUser();
+  if (me.role === 'carrier') return viewCarrier();
+  if (me.role === 'workshop') return viewWorkshop();
+  return viewClient();
+}
+
+function render(){
+  var me = currentUser();
+  if (!me) {
+    renderEntry();
+    $('#overlay-root').innerHTML = '';
+    return;
+  }
+  var app = $('#app');
+  app.innerHTML =
+    '<div class="shell">' +
+      railHtml() +
+      utilBarHtml() +
+      mobileTopHtml() +
+      '<main class="main" id="workspace">' + workspaceHtml() + '</main>' +
+      bottomNavHtml() +
+    '</div>';
+  $('#overlay-root').innerHTML = notifDrawerHtml() + menuSheetHtml() + dialogHtml();
+  mountLiveMaps();
+  positionTrucks(false);
+  var msgs = $('#msgs');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  var totalEl = $('.js-total');
+  if (totalEl) recalcTotal();
+}
+
+/* ============================================================
+   11. ACTIONS
+   ============================================================ */
+function recalcTotal(){
+  var qtyInput = $('#no-qty'), priceInput = $('#no-price'), out = $('.js-total');
+  if (!qtyInput || !priceInput || !out) return;
+  var qty = parseInt(String(qtyInput.value).replace(/\D/g, ''), 10) || 0;
+  var price = parseInt(String(priceInput.value).replace(/\D/g, ''), 10) || 0;
+  out.textContent = money(qty * price);
+}
+
+function validatePhoneForm(digits){
+  if (digits.length !== 11) return 'Введите номер полностью: +7 и 10 цифр.';
+  if (digits.charAt(0) !== '7') return 'Номер должен начинаться с +7.';
+  return '';
+}
+
+function handleAction(action, el, ev){
+  var me = currentUser();
+
+  switch (action) {
+    case 'switch-mode':
+      ui.mode = el.getAttribute('data-mode') || 'register';
+      ui.reg.errors = {};
+      ui.login.errors = {};
+      render();
+      break;
+
+    case 'switch-role': {
+      var role = el.getAttribute('data-role');
+      if (me && me.roles.indexOf(role) >= 0) {
+        me.role = role;
+        persist();
+        ui.view = 'orders';
+        ui.chatOrderId = null;
+        ui.newOrderOpen = false;
+        render();
+        toast('Роль переключена: ' + ROLE_LABEL[role], 'ok');
+      } else {
+        toast('Эта роль недоступна для профиля', 'alert');
+      }
+      break;
+    }
+
+    case 'nav':
+      ui.view = el.getAttribute('data-view');
+      ui.menuOpen = false;
+      ui.drawerOpen = false;
+      render();
+      break;
+
+    case 'toggle-menu':
+      ui.menuOpen = !ui.menuOpen;
+      render();
+      break;
+
+    case 'toggle-notif':
+      ui.drawerOpen = !ui.drawerOpen;
+      if (ui.drawerOpen) {
+        myNotifications().forEach(function(n){ n.read = true; });
+        persist();
+      }
+      render();
+      break;
+
+    case 'close-overlay':
+      if (ev && ev.target && ev.target.hasAttribute && ev.target.hasAttribute('data-stop')) return;
+      if (ev && el !== ev.target && ev.target.closest && ev.target.closest('[data-stop]')) return;
+      ui.drawerOpen = false;
+      ui.menuOpen = false;
+      ui.dialog = null;
+      render();
+      break;
+
+    case 'mark-read-all':
+      myNotifications().forEach(function(n){ n.read = true; });
+      persist();
+      render();
+      break;
+
+    case 'clear-notif':
+      DB.notifications = DB.notifications.filter(function(n){ return n.userId !== me.id; });
+      persist();
+      render();
+      break;
+
+    case 'open-order-from-notif': {
+      var oid = el.getAttribute('data-order');
+      ui.drawerOpen = false;
+      ui.selectedOrderId = oid;
+      ui.chatOrderId = oid;
+      var o = orderById(oid);
+      if (o && me.role === 'carrier' && o.carrierId === me.id) ui.view = 'map';
+      else if (o && me.role === 'workshop') ui.view = 'orders';
+      else ui.view = 'orders';
+      render();
+      break;
+    }
+
+    case 'resend-code':
+      ui.reg.codeSent = String(Math.floor(1000 + Math.random() * 9000));
+      toast('Код отправлен ещё раз: ' + ui.reg.codeSent, 'live');
+      render();
+      break;
+
+    case 'reg-back':
+      if (ui.reg.step === 2) ui.reg.step = 1;
+      else if (ui.reg.step === 1) ui.reg.step = 0;
+      else if (ui.reg.step === 3) ui.reg.step = 2;
+      ui.reg.errors = {};
+      render();
+      break;
+
+    case 'pick-role':
+      ui.reg.role = el.getAttribute('data-role');
+      ui.reg.errors.role = '';
+      render();
+      break;
+
+    case 'finish-reg':
+      finishRegistration();
+      break;
+
+    case 'toggle-new-order':
+      ui.newOrderOpen = !ui.newOrderOpen;
+      render();
+      if (ui.newOrderOpen) {
+        var f = $('#new-order-form');
+        if (f) f.scrollIntoView({ block: 'nearest' });
+      }
+      break;
+
+    case 'toggle-req': {
+      var key = el.getAttribute('data-user');
+      ui.showReq[key] = !ui.showReq[key];
+      render();
+      break;
+    }
+
+    case 'open-chat':
+      ui.chatOrderId = el.getAttribute('data-order');
+      ui.view = 'chat';
+      ui.drawerOpen = false;
+      render();
+      break;
+
+    case 'open-route':
+      ui.selectedOrderId = el.getAttribute('data-order');
+      ui.view = 'map';
+      render();
+      break;
+
+    case 'accept-order':
+      acceptCarrierOrder(el.getAttribute('data-order'));
+      break;
+
+    case 'decline-order': {
+      var did = el.getAttribute('data-order');
+      ui.dialog = {
+        title: 'Отклонить заказ?',
+        text: 'Заказ ' + did + ' останется у других перевозчиков. Клиент получит уведомление, что рейс вам не подходит.',
+        kind: 'alert',
+        confirmText: 'Не подходит',
+        onConfirm: function(){
+          toast('Заказ ' + did + ' пропущен', 'alert');
+          ui.dialog = null;
+          render();
+        }
+      };
+      render();
+      break;
+    }
+
+    case 'accept-workshop': {
+      var wid = el.getAttribute('data-order');
+      var wo = orderById(wid);
+      if (!wo) break;
+      wo.workshopStatus = 'accepted';
+      persist();
+      notify(wo.clientId, 'Цех принял заказ ' + wo.id + ': ' + wo.qty + ' ' + chickenWord(wo.qty) + '.', wo.id);
+      if (wo.carrierId) notify(wo.carrierId, 'Цех «Чистка» принял заказ ' + wo.id + '. Везите по адресу: ' + ((userById(wo.workshopId) || {}).address || ''), wo.id);
+      toast('Заказ ' + wo.id + ' принят в цех', 'ok');
+      render();
+      break;
+    }
+
+    case 'decline-workshop': {
+      var xid = el.getAttribute('data-order');
+      var xo = orderById(xid);
+      if (!xo) break;
+      ui.dialog = {
+        title: 'Отклонить заказ в цех?',
+        text: 'Клиент и перевозчик получат уведомление, что цех не примет партию ' + xo.qty + ' ' + chickenWord(xo.qty) + '.',
+        kind: 'alert',
+        confirmText: 'Отклонить',
+        onConfirm: function(){
+          xo.workshopStatus = 'declined';
+          persist();
+          notify(xo.clientId, 'Цех отклонил заказ ' + xo.id + '. Измените условия или свяжитесь с цехом.', xo.id);
+          if (xo.carrierId) notify(xo.carrierId, 'Цех отклонил приёмку заказа ' + xo.id + '.', xo.id);
+          toast('Заказ ' + xo.id + ' отклонён цехом', 'alert');
+          ui.dialog = null;
+          render();
+        }
+      };
+      render();
+      break;
+    }
+
+    case 'mark-delivered': {
+      var mid = el.getAttribute('data-order');
+      var mo = orderById(mid);
+      if (!mo) break;
+      mo.state = 'arrived';
+      mo.progress = 1;
+      persist();
+      notify(mo.clientId, 'Маршрут ' + mo.id + ': перевозчик прибыл в цех.', mo.id);
+      notify(mo.workshopId, 'Машина по заказу ' + mo.id + ' прибыла в цех: ' + mo.qty + ' ' + chickenWord(mo.qty) + '.', mo.id);
+      toast('Прибытие отмечено по заказу ' + mo.id, 'ok');
+      render();
+      break;
+    }
+
+    case 'quick-price': {
+      var qid = el.getAttribute('data-order');
+      var qo = orderById(qid);
+      if (!qo) break;
+      var delta = parseInt(el.getAttribute('data-delta'), 10) || 0;
+      if (delta !== 0) {
+        var np = Math.max(1, qo.pricePer + delta);
+        qo.pricePer = np;
+        qo.total = orderTotal(qo);
+        DB.messages.push({
+          id: uid('m'), orderId: qo.id, from: me.id,
+          text: 'Предлагаю цену ' + np + ' ₽ за курицу. Итого ' + money(orderTotal(qo)) + '.',
+          ts: now(), priceChip: true
+        });
+        var other = counterpartFor(qo);
+        if (other) notify(other.id, 'Новое предложение по цене в заказе ' + qo.id + ': ' + np + ' ₽ за курицу.', qo.id);
+        toast('Предложение отправлено: ' + np + ' ₽ за курицу', 'live');
+      } else {
+        DB.messages.push({
+          id: uid('m'), orderId: qo.id, from: me.id,
+          text: 'Фиксирую цену: ' + qo.pricePer + ' ₽ за курицу, итого ' + money(orderTotal(qo)) + '.',
+          ts: now(), priceChip: true
+        });
+        var other2 = counterpartFor(qo);
+        if (other2) notify(other2.id, 'Цена зафиксирована в заказе ' + qo.id + ': ' + qo.pricePer + ' ₽ за курицу.', qo.id);
+        toast('Цена зафиксирована: ' + qo.pricePer + ' ₽ / курица', 'ok');
+      }
+      persist();
+      render();
+      break;
+    }
+
+    case 'toggle-edit-profile':
+      ui.editProfile = !ui.editProfile;
+      render();
+      break;
+
+    case 'logout':
+      DB.sessionUserId = null;
+      persist();
+      ui.view = 'orders';
+      ui.chatOrderId = null;
+      ui.newOrderOpen = false;
+      ui.mode = 'login';
+      ui.reg = { step: 0, phone: '', code: '', codeSent: null, name: '', bank: '', card: '', recipient: '', role: '', errors: {} };
+      render();
+      toast('Вы вышли из аккаунта', 'live');
+      break;
+
+    case 'dialog-confirm':
+      if (ui.dialog && ui.dialog.onConfirm) ui.dialog.onConfirm();
+      else { ui.dialog = null; render(); }
+      break;
+
+    default:
+      break;
+  }
+}
+
+function acceptCarrierOrder(orderId){
+  var me = currentUser();
+  var o = orderById(orderId);
+  if (!o || !me) return;
+  if (o.state !== 'awaiting_carrier') {
+    toast('Заказ уже занят другим перевозчиком', 'alert');
+    render();
+    return;
+  }
+  o.carrierId = me.id;
+  o.state = 'accepted';
+  o.carrierStatus = 'accepted';
+  o.acceptedAt = now();
+  o.progress = 0;
+  persist();
+
+  notify(o.clientId, 'Перевозчик ' + me.name + ' принял заказ ' + o.id + ' (' + o.qty + ' ' + chickenWord(o.qty) + ', ' + money(o.pricePer) + ' за курицу).', o.id);
+  notify(o.workshopId, 'Заказ ' + o.id + ' в пути: ' + o.qty + ' ' + chickenWord(o.qty) + ', перевозчик ' + me.name + ' (' + fmtPhone(me.phone) + ').', o.id);
+  DB.messages.push({
+    id: uid('m'), orderId: o.id, from: me.id,
+    text: 'Принял заказ. Выезжаю на погрузку: ' + o.pickup + '.',
+    ts: now(), priceChip: false
+  });
+  persist();
+
+  ui.selectedOrderId = o.id;
+  ui.view = 'map';
+  toast('Заказ ' + o.id + ' принят. Маршрут построен.', 'ok');
+  announce('Заказ ' + o.id + ' принят. Маршрут построен.');
+  render();
+
+  /* signature moment: draw route + lock ETA */
+  setTimeout(function(){
+    var wrap = $('.js-map[data-order="' + o.id + '"]');
+    if (wrap) {
+      var path = wrap.querySelector('.route-path');
+      if (path) {
+        path.classList.remove('route-path-anim');
+        try { path.style.setProperty('--len', path.getTotalLength()); } catch (e) {}
+        void path.getBoundingClientRect();
+        path.classList.add('route-path-anim');
+      }
+    }
+    $$('.eta-module').forEach(function(m){ m.classList.add('eta-locked'); });
+    positionTrucks(true);
+  }, 30);
+}
+
+function finishRegistration(){
+  var r = ui.reg;
+  r.errors = {};
+  if (!r.name.trim()) r.errors.name = 'Укажите имя.';
+  if (!r.bank.trim()) r.errors.bank = 'Укажите банк.';
+  if (String(r.card).replace(/\D/g, '').length < 8) r.errors.card = 'Введите номер карты или счёта.';
+  if (!r.recipient.trim()) r.errors.recipient = 'Укажите получателя.';
+  if (!r.role) r.errors.role = 'Выберите роль.';
+  if (Object.keys(r.errors).some(function(k){ return r.errors[k]; })) {
+    render();
+    return;
+  }
+
+  var user = {
+    id: uid('u'),
+    name: r.name.trim(),
+    phone: fmtPhoneDigits(r.phone),
+    bank: r.bank.trim(),
+    card: String(r.card).replace(/\D/g, ''),
+    recipient: r.recipient.trim(),
+    role: r.role,
+    roles: [r.role],
+    address: r.role === 'workshop' ? 'Москва, ул. Братиславская, 18' : ''
+  };
+
+  DB.users.push(user);
+
+  /* role-specific demo content so every workspace starts alive */
+  if (user.role === 'client') {
+    DB.orders.unshift({
+      id: nextOrderId(), qty: 90, pricePer: 16, total: 1440,
+      pickup: 'Москва, ул. Профсоюзная, 33', pickupPoint: [180 + Math.floor(Math.random() * 300), 160 + Math.floor(Math.random() * 260)],
+      clientId: user.id, carrierId: null, workshopId: 'u3',
+      state: 'awaiting_carrier', workshopStatus: 'pending', carrierStatus: 'pending',
+      progress: 0, totalMin: 26, createdAt: now() - 1000 * 60 * 4,
+      acceptedAt: null, comment: 'Позвонить за 20 минут до подачи.', deliveredAt: null
+    });
+    DB.orders.unshift({
+      id: nextOrderId(), qty: 45, pricePer: 12, total: 540,
+      pickup: 'Москва, ул. Академика Волгина, 6', pickupPoint: [420, 420],
+      clientId: user.id, carrierId: 'u2', workshopId: 'u3',
+      state: 'done', workshopStatus: 'accepted', carrierStatus: 'accepted',
+      progress: 1, totalMin: 30, createdAt: now() - 1000 * 60 * 60 * 3,
+      acceptedAt: now() - 1000 * 60 * 60 * 2, comment: '',
+      deliveredAt: now() - 1000 * 60 * 70
+    });
+  }
+  if (user.role === 'workshop') {
+    /* this profile becomes the receiving цех for the demo logistics */
+    DB.orders.forEach(function(o){
+      if (o.state !== 'done') o.workshopId = user.id;
+    });
+    if (!user.address) user.address = 'Москва, ул. Братиславская, 18';
+  }
+
+  DB.sessionUserId = user.id;
+  persist();
+
+  /* welcome notifications */
+  notify(user.id, 'Добро пожаловать в КУРОВОЗ! Роль: ' + ROLE_LABEL[user.role] + '.', null);
+  if (user.role === 'client') {
+    notify(user.id, 'Создайте заказ: укажите количество куриц и цену за 1 курицу перевозчику.', null);
+    notify('u2', 'Новый клиент ' + user.name + ' зарегистрировался. Следите за заказами.', null);
+  } else if (user.role === 'carrier') {
+    notify(user.id, 'Вам доступны заказы клиентов. Уведомления о новых заявках уже включены.', null);
+    notify('u2', 'Перевозчик ' + user.name + ' вышел на смену.', null);
+  } else {
+    notify(user.id, 'Цех готов принимать партии. Заказы клиентов появятся в списке.', null);
+    notify('u3', 'Цех ' + user.name + ' появился в сети.', null);
+  }
+  persist();
+
+  ui.reg = { step: 0, phone: '', code: '', codeSent: null, name: '', bank: '', card: '', recipient: '', role: '', errors: {} };
+  ui.view = 'orders';
+  render();
+  toast('Профиль создан. Добро пожаловать!', 'ok');
+}
+
+/* ============================================================
+   12. FORMS
+   ============================================================ */
+function fieldOf(form, name){
+  var el = form.querySelector('[name="' + name + '"]');
+  return el ? el : null;
+}
+function fv(form, name){
+  var el = fieldOf(form, name);
+  return el ? String(el.value == null ? '' : el.value) : '';
+}
+
+function handleSubmit(form, ev){
+  ev.preventDefault();
+  var kind = form.getAttribute('data-form');
+  var me = currentUser();
+
+  if (kind === 'login') {
+    var lphone = fmtPhoneDigits(fv(form, 'phone'));
+    var lerr = validatePhoneForm(lphone);
+    if (lerr) { ui.login.errors.phone = lerr; ui.login.phone = lphone; render(); return; }
+    var found = DB.users.filter(function(u){ return u.phone === lphone; })[0];
+    if (!found) {
+      ui.login.errors.phone = 'Профиль с таким номером не найден. Пройдите регистрацию.';
+      ui.login.phone = lphone;
+      render();
+      return;
+    }
+    DB.sessionUserId = found.id;
+    ui.login.errors = {};
+    persist();
+    ui.view = 'orders';
+    render();
+    toast('С возвращением, ' + found.name + '!', 'ok');
+    return;
+  }
+
+  if (kind === 'reg-phone') {
+    var phone = fmtPhoneDigits(fv(form, 'phone'));
+    var err = validatePhoneForm(phone);
+    if (err) {
+      ui.reg.errors.phone = err;
+      ui.reg.phone = phone;
+      render();
+      return;
+    }
+    ui.reg.phone = phone;
+    ui.reg.errors = {};
+    ui.reg.codeSent = String(Math.floor(1000 + Math.random() * 9000));
+    ui.reg.step = 1;
+    render();
+    toast('Код отправлен на ' + fmtPhone(phone) + '. Демо-код: ' + ui.reg.codeSent, 'live');
+    return;
+  }
+
+  if (kind === 'reg-code') {
+    var code = fv(form, 'code').replace(/\D/g, '');
+    if (code.length !== 4) {
+      ui.reg.errors.code = 'Введите 4 цифры из SMS.';
+      render();
+      return;
+    }
+    if (code !== ui.reg.codeSent) {
+      ui.reg.errors.code = 'Неверный код. Проверьте SMS или запросите новый.';
+      render();
+      return;
+    }
+    ui.reg.code = code;
+    ui.reg.errors = {};
+    ui.reg.step = 2;
+    render();
+    return;
+  }
+
+  if (kind === 'reg-profile') {
+    var name = fv(form, 'name').trim();
+    var bank = fv(form, 'bank').trim();
+    var card = fv(form, 'card').replace(/\D/g, '');
+    var recipient = fv(form, 'recipient').trim();
+    ui.reg.name = name;
+    ui.reg.bank = bank;
+    ui.reg.card = card;
+    ui.reg.recipient = recipient;
+    ui.reg.errors = {};
+    if (!name) ui.reg.errors.name = 'Укажите имя.';
+    if (!bank) ui.reg.errors.bank = 'Укажите банк.';
+    if (card.length < 8) ui.reg.errors.card = 'Введите номер карты или счёта.';
+    if (!recipient) ui.reg.errors.recipient = 'Укажите получателя.';
+    if (Object.keys(ui.reg.errors).some(function(k){ return ui.reg.errors[k]; })) {
+      render();
+      return;
+    }
+    ui.reg.step = 3;
+    render();
+    return;
+  }
+
+  if (kind === 'new-order') {
+    var qty = parseInt(fv(form, 'qty').replace(/\D/g, ''), 10);
+    var price = parseInt(fv(form, 'price').replace(/\D/g, ''), 10);
+    var pickup = fv(form, 'pickup').trim();
+    var workshopAddr = fv(form, 'workshop').trim();
+    var comment = fv(form, 'comment').trim();
+
+    form.querySelectorAll('.err').forEach(function(e){ e.textContent = ''; });
+    var ok = true;
+    function setErr(name, msg){
+      var box = form.querySelector('[data-err="' + name + '"]');
+      if (box) box.textContent = msg;
+      ok = false;
+    }
+    if (!qty || qty < 1) setErr('qty', 'Укажите количество куриц.');
+    if (!price || price < 1) setErr('price', 'Укажите цену за 1 курицу.');
+    if (!pickup) setErr('pickup', 'Укажите адрес получения.');
+    if (!workshopAddr) setErr('workshop', 'Укажите адрес чистки.');
+    if (!ok) return;
+
+    var order = {
+      id: nextOrderId(),
+      qty: qty,
+      pricePer: price,
+      total: qty * price,
+      pickup: pickup,
+      pickupPoint: [140 + Math.floor(Math.random() * 420), 120 + Math.floor(Math.random() * 320)],
+      clientId: me.id,
+      carrierId: null,
+      workshopId: 'u3',
+      state: 'awaiting_carrier',
+      workshopStatus: 'pending',
+      carrierStatus: 'pending',
+      progress: 0,
+      totalMin: 22 + Math.floor(Math.random() * 18),
+      createdAt: now(),
+      acceptedAt: null,
+      comment: comment,
+      deliveredAt: null
+    };
+    DB.orders.unshift(order);
+    persist();
+
+    /* notifications: carriers + workshop */
+    DB.users.forEach(function(u){
+      if (u.role === 'carrier' || (u.roles || []).indexOf('carrier') >= 0) {
+        notify(u.id, 'Новый заказ ' + order.id + ': ' + order.qty + ' ' + chickenWord(order.qty) + ', ' + money(order.pricePer) + ' за курицу, итого ' + money(orderTotal(order)) + '.', order.id);
+      }
+      if (u.role === 'workshop' || (u.roles || []).indexOf('workshop') >= 0) {
+        notify(u.id, 'Заказ ' + order.id + ': клиент ' + me.name + ' ожидает ' + order.qty + ' ' + chickenWord(order.qty) + '. Адрес погрузки: ' + order.pickup + '.', order.id);
+      }
+    });
+    /* demo carrier + demo workshop always */
+    if (userById('u2')) notify('u2', 'Новый заказ ' + order.id + ': ' + order.qty + ' ' + chickenWord(order.qty) + ', ' + money(order.pricePer) + ' за курицу, итого ' + money(orderTotal(order)) + '.', order.id);
+    if (userById('u3')) notify('u3', 'Заказ ' + order.id + ': клиент ' + me.name + ' ожидает ' + order.qty + ' ' + chickenWord(order.qty) + '. Адрес погрузки: ' + order.pickup + '.', order.id);
+
+    ui.newOrderOpen = false;
+    ui.selectedOrderId = order.id;
+    persist();
+    render();
+    toast('Заказ ' + order.id + ' отправлен перевозчикам и в цех', 'ok');
+    announce('Заказ ' + order.id + ' создан и отправлен перевозчикам и в цех.');
+    return;
+  }
+
+  if (kind === 'chat-send') {
+    var text = fv(form, 'text').trim();
+    if (!text || !ui.chatOrderId) return;
+    DB.messages.push({
+      id: uid('m'),
+      orderId: ui.chatOrderId,
+      from: me.id,
+      text: text,
+      ts: now(),
+      priceChip: false
+    });
+    var ord = orderById(ui.chatOrderId);
+    var other = ord ? counterpartFor(ord) : null;
+    if (other) notify(other.id, 'Сообщение по заказу ' + ui.chatOrderId + ' от ' + me.name + '.', ui.chatOrderId);
+    persist();
+    render();
+    return;
+  }
+
+  if (kind === 'edit-profile') {
+    var newName = fv(form, 'name').trim();
+    var newBank = fv(form, 'bank').trim();
+    var newCard = fv(form, 'card').replace(/\D/g, '');
+    var newRecipient = fv(form, 'recipient').trim();
+    var newAddress = fv(form, 'address').trim();
+    if (!newName || !newBank || newCard.length < 8 || !newRecipient) {
+      toast('Заполните имя, банк, номер карты и получателя', 'alert');
+      return;
+    }
+    me.name = newName;
+    me.bank = newBank;
+    me.card = newCard;
+    me.recipient = newRecipient;
+    me.address = newAddress;
+    persist();
+    ui.editProfile = false;
+    render();
+    toast('Профиль обновлён', 'ok');
+    return;
+  }
+}
+
+/* ============================================================
+   13. INPUT HELPERS (phone / card masks)
+   ============================================================ */
+function onInput(e){
+  var t = e.target;
+  if (t.hasAttribute('data-phone')) {
+    var pos = t.selectionStart;
+    var oldLen = t.value.length;
+    var digits = fmtPhoneDigits(t.value);
+    t.value = fmtPhone(digits);
+    var diff = t.value.length - oldLen;
+    try { t.setSelectionRange(pos + diff, pos + diff); } catch (err) {}
+    return;
+  }
+  if (t.hasAttribute('data-card')) {
+    var d = t.value.replace(/\D/g, '').slice(0, 16);
+    t.value = fmtCardFull(d);
+    return;
+  }
+  if (t.classList && t.classList.contains('js-calc')) {
+    recalcTotal();
+    return;
+  }
+}
+
+/* ============================================================
+   14. EVENTS
+   ============================================================ */
+document.addEventListener('click', function(ev){
+  if (!ev.target.closest) return;
+  var el = ev.target.closest('[data-action]');
+  if (!el) return;
+  var action = el.getAttribute('data-action');
+  if (!action) return;
+  ev.preventDefault();
+  handleAction(action, el, ev);
+});
+
+document.addEventListener('submit', function(ev){
+  var form = ev.target;
+  if (form && form.getAttribute && form.getAttribute('data-form')) {
+    handleSubmit(form, ev);
+  }
+});
+
+document.addEventListener('input', function(ev){
+  onInput(ev);
+});
+
+document.addEventListener('keydown', function(ev){
+  if (ev.key === 'Escape') {
+    if (ui.drawerOpen || ui.menuOpen || ui.dialog) {
+      ui.drawerOpen = false;
+      ui.menuOpen = false;
+      ui.dialog = null;
+      render();
+    }
+  }
+});
+
+/* ============================================================
+   15. SIMULATION TICK
+   ============================================================ */
+var tickCount = 0;
+function tick(){
+  tickCount++;
+  var changed = false;
+
+  DB.orders.forEach(function(o){
+    if (o.state === 'accepted') {
+      /* heading to pickup: small progress, then switch to in_transit */
+      o.progress = (o.progress || 0) + 0.012;
+      if (o.progress >= 0.22) {
+        o.state = 'in_transit';
+        o.progress = 0.22;
+        changed = true;
+        if (o.clientId) notify(o.clientId, 'Маршрут ' + o.id + ': перевозчик загрузил ' + o.qty + ' ' + chickenWord(o.qty) + ' и выехал в цех.', o.id);
+        if (o.workshopId) notify(o.workshopId, 'Заказ ' + o.id + ' выехал в цех: ' + o.qty + ' ' + chickenWord(o.qty) + ', ожидаемое прибытие через ' + etaMinutes(o) + ' мин.', o.id);
+      } else {
+        changed = true;
+      }
+    } else if (o.state === 'in_transit') {
+      o.progress = (o.progress || 0) + 0.018;
+      if (o.progress >= 1) {
+        o.progress = 1;
+        o.state = 'arrived';
+        changed = true;
+        if (o.clientId) notify(o.clientId, 'Маршрут ' + o.id + ': машина прибыла в цех.', o.id);
+        if (o.workshopId) notify(o.workshopId, 'Машина по заказу ' + o.id + ' прибыла: ' + o.qty + ' ' + chickenWord(o.qty) + ' к приёмке.', o.id);
+        if (o.carrierId) notify(o.carrierId, 'Вы прибыли по заказу ' + o.id + '. Передайте партию цеху.', o.id);
+      } else if (tickCount % 5 === 0) {
+        changed = true;
+      }
+    } else if (o.state === 'arrived') {
+      if ((o.arrivedAt || (o.arrivedAt = now())) && now() - o.arrivedAt > 1000 * 45) {
+        o.state = 'done';
+        o.deliveredAt = now();
+        changed = true;
+        if (o.clientId) notify(o.clientId, 'Заказ ' + o.id + ' завершён: ' + o.qty + ' ' + chickenWord(o.qty) + ' приняты цехом.', o.id);
+      }
+    }
+  });
+
+  persist();
+
+  /* targeted live updates without full re-render */
+  positionTrucks(true);
+  $$('[data-eta-order]').forEach(function(node){
+    var o = orderById(node.getAttribute('data-eta-order'));
+    if (!o) return;
+    var num = node.querySelector('.eta-num');
+    if (num) num.textContent = etaMinutes(o) + ' мин';
+    var side = node.querySelector('.es-val');
+    if (side) side.textContent = fmtTime(now() + etaMinutes(o) * 60000);
+  });
+
+  /* occasional ambient notification for demo richness */
+  if (tickCount === 12) {
+    var me = currentUser();
+    if (me && me.role === 'workshop') {
+      notify(me.id, 'Напоминание: ближайшая машина будет в цеху в течение получаса.', null);
+    }
+  }
+
+  if (changed && (tickCount % 4 === 0)) {
+    /* refresh lists periodically so state stamps appear */
+    render();
+  }
+}
+
+/* ============================================================
+   16. BOOT
+   ============================================================ */
+render();
+setInterval(tick, 2500);
+
+})();
+</script>
+</body>
+</html>

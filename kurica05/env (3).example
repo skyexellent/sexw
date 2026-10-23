@@ -1,0 +1,37 @@
+# ===== КУРОВОЗ — настройки сервера =====
+# Этот файл НЕ публикуйте: в нём API-ключи.
+
+PORT=3000
+HOST=0.0.0.0
+
+# ----- SMS через sms.ru -----
+# Ключ из личного кабинета sms.ru → «API ключи».
+SMS_RU_API_KEY=5C179B89-65F3-B620-B6EA-7A0F4DC8D718
+# Имя отправителя (должно быть подтверждено в sms.ru):
+#SMS_RU_SENDER=KUROVOZ
+# test=1: sms.ru принимает запрос, но НЕ отправляет SMS (полезно для отладки)
+SMS_RU_TEST=0
+# sms|console. console — код пишется в лог сервера и возвращается в ответе (для разработки)
+SMS_PROVIDER=sms
+SMS_CODE_TTL=300
+
+# ----- Регистрация по e-mail (SMTP) -----
+# Заполните, чтобы включить вход по почте. Пример для Яндекса:
+#   SMTP_HOST=smtp.yandex.ru
+#   SMTP_PORT=465
+#   SMTP_SECURE=true
+#   SMTP_USER=ваш_ящик@yandex.ru
+#   SMTP_PASS=пароль_приложения
+#   SMTP_FROM=ваш_ящик@yandex.ru
+#SMTP_HOST=
+#SMTP_PORT=465
+#SMTP_SECURE=true
+#SMTP_USER=
+#SMTP_PASS=
+#SMTP_FROM=
+# smtp|console. console — код пишется в лог сервера (для разработки без SMTP)
+EMAIL_PROVIDER=smtp
+
+# ----- Прочее -----
+SESSION_TTL_DAYS=30
+DATA_DIR=./data

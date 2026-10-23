@@ -1,0 +1,238 @@
+'use strict';
+/*
+ * Postgres-хранилище (Vercel / Neon / любые POSTGRES_URL).
+ *
+ * Особенность: весь запрос выполняется в одной транзакции с advisory-блокировкой —
+ * состояние загружается в память, бизнес-логика работает с ним как с объектом,
+ * изменения синхронизируются обратно в БД до COMMIT. Это сериализует запросы
+ * между инстансами serverless-функций и не требует переписывать логику приложения.
+ */
+const { Pool: PgPool } = require('pg');
+
+const CONNECTION = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
+const LOCK_KEY = 742421;
+
+let pool = null;
+function getPool() {
+  if (!pool) {
+    pool = new PgPool({
+      connectionString: CONNECTION,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 15000
+    });
+    pool.on('error', (err) => console.error('[pg]', err.message));
+  }
+  return pool;
+}
+/* тестовый хук: подмена пула (например, эмулятором Postgres) */
+function _setPool(p) { pool = p; }
+
+const EMPTY = {
+  users: [], codes: [], sessions: [], orders: [], messages: [],
+  notifications: [], positions: [], geoCache: {}, meta: { version: 1 }
+};
+
+let db = null;
+let dirty = false;
+let schemaReady = false;
+
+function get() {
+  if (!db) db = JSON.parse(JSON.stringify(EMPTY));
+  return db;
+}
+function save() {
+  dirty = true;
+  return Promise.resolve();
+}
+function saveSync() { dirty = true; }
+
+async function ensureSchema(client) {
+  if (schemaReady) return;
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, phone TEXT, email TEXT,
+      bank TEXT, card TEXT, recipient TEXT, role TEXT, address TEXT, created_at BIGINT
+    )`,
+    `CREATE TABLE IF NOT EXISTS codes (
+      id TEXT PRIMARY KEY, channel TEXT, target TEXT, code_hash TEXT,
+      sent_at BIGINT, expires_at BIGINT, attempts INTEGER, ip TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY, user_id TEXT, created_at BIGINT, expires_at BIGINT
+    )`,
+    `CREATE TABLE IF NOT EXISTS orders (
+      id TEXT PRIMARY KEY, qty INTEGER, price_per INTEGER, pickup TEXT,
+      pickup_lat DOUBLE PRECISION, pickup_lng DOUBLE PRECISION,
+      workshop_id TEXT, workshop_address TEXT,
+      workshop_lat DOUBLE PRECISION, workshop_lng DOUBLE PRECISION,
+      client_id TEXT, carrier_id TEXT, state TEXT, workshop_status TEXT,
+      comment TEXT, created_at BIGINT, accepted_at BIGINT, delivered_at BIGINT,
+      skipped_by TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY, order_id TEXT, from_user TEXT, text TEXT,
+      ts BIGINT, price_chip BOOLEAN
+    )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY, user_id TEXT, text TEXT, order_id TEXT,
+      ts BIGINT, is_read BOOLEAN
+    )`,
+    `CREATE TABLE IF NOT EXISTS positions (
+      order_id TEXT PRIMARY KEY,
+      lat DOUBLE PRECISION, lng DOUBLE PRECISION, speed DOUBLE PRECISION, ts BIGINT
+    )`,
+    `CREATE TABLE IF NOT EXISTS geo_cache (
+      address TEXT PRIMARY KEY,
+      lat DOUBLE PRECISION, lng DOUBLE PRECISION
+    )`
+  ];
+  for (const sql of statements) await client.query(sql);
+  schemaReady = true;
+}
+
+function n(v) { return v == null ? null : Number(v); }
+
+async function loadState(client) {
+  db = JSON.parse(JSON.stringify(EMPTY));
+  const [users, codes, sessions, orders, messages, notifications, positions, geo] = await Promise.all([
+    client.query('SELECT * FROM users'),
+    client.query('SELECT * FROM codes'),
+    client.query('SELECT * FROM sessions'),
+    client.query('SELECT * FROM orders'),
+    client.query('SELECT * FROM messages'),
+    client.query('SELECT * FROM notifications'),
+    client.query('SELECT * FROM positions'),
+    client.query('SELECT * FROM geo_cache')
+  ]);
+  users.rows.forEach((r) => db.users.push({
+    id: r.id, name: r.name, phone: r.phone || '', email: r.email || '',
+    bank: r.bank || '', card: r.card || '', recipient: r.recipient || '',
+    role: r.role, address: r.address || '', createdAt: n(r.created_at) || Date.now()
+  }));
+  codes.rows.forEach((r) => db.codes.push({
+    id: r.id, channel: r.channel, target: r.target, hash: r.code_hash,
+    sentAt: n(r.sent_at), expiresAt: n(r.expires_at),
+    attempts: n(r.attempts) || 0, ip: r.ip || ''
+  }));
+  sessions.rows.forEach((r) => db.sessions.push({
+    tokenHash: r.token_hash, userId: r.user_id,
+    createdAt: n(r.created_at), expiresAt: n(r.expires_at)
+  }));
+  orders.rows.forEach((r) => {
+    let skipped = [];
+    try { skipped = r.skipped_by ? JSON.parse(r.skipped_by) : []; } catch (e) {}
+    db.orders.push({
+      id: r.id, qty: n(r.qty), pricePer: n(r.price_per), pickup: r.pickup || '',
+      pickupLat: n(r.pickup_lat), pickupLng: n(r.pickup_lng),
+      workshopId: r.workshop_id || null, workshopAddress: r.workshop_address || '',
+      workshopLat: n(r.workshop_lat), workshopLng: n(r.workshop_lng),
+      clientId: r.client_id, carrierId: r.carrier_id || null,
+      state: r.state, workshopStatus: r.workshop_status, comment: r.comment || '',
+      createdAt: n(r.created_at), acceptedAt: n(r.accepted_at), deliveredAt: n(r.delivered_at),
+      skippedBy: skipped
+    });
+  });
+  messages.rows.forEach((r) => db.messages.push({
+    id: r.id, orderId: r.order_id, from: r.from_user, text: r.text,
+    ts: n(r.ts), priceChip: !!r.price_chip
+  }));
+  notifications.rows.forEach((r) => db.notifications.push({
+    id: r.id, userId: r.user_id, text: r.text, orderId: r.order_id || null,
+    ts: n(r.ts), read: !!r.is_read
+  }));
+  positions.rows.forEach((r) => db.positions.push({
+    orderId: r.order_id, lat: n(r.lat), lng: n(r.lng), speed: n(r.speed), ts: n(r.ts)
+  }));
+  geo.rows.forEach((r) => {
+    db.geoCache[r.address] = (r.lat == null && r.lng == null) ? null : { lat: n(r.lat), lng: n(r.lng) };
+  });
+}
+
+async function syncState(client) {
+  const tables = ['geo_cache', 'positions', 'notifications', 'messages', 'orders', 'sessions', 'codes', 'users'];
+  for (const t of tables) await client.query('DELETE FROM ' + t);
+
+  for (const u of db.users) {
+    await client.query(
+      'INSERT INTO users (id, name, phone, email, bank, card, recipient, role, address, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [u.id, u.name, u.phone || '', u.email || '', u.bank || '', u.card || '', u.recipient || '', u.role, u.address || '', u.createdAt || Date.now()]
+    );
+  }
+  for (const c of db.codes) {
+    await client.query(
+      'INSERT INTO codes (id, channel, target, code_hash, sent_at, expires_at, attempts, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+      [c.id, c.channel, c.target, c.hash, c.sentAt, c.expiresAt, c.attempts || 0, c.ip || '']
+    );
+  }
+  for (const s of db.sessions) {
+    await client.query(
+      'INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES ($1,$2,$3,$4)',
+      [s.tokenHash, s.userId, s.createdAt, s.expiresAt]
+    );
+  }
+  for (const o of db.orders) {
+    await client.query(
+      `INSERT INTO orders (id, qty, price_per, pickup, pickup_lat, pickup_lng, workshop_id, workshop_address,
+        workshop_lat, workshop_lng, client_id, carrier_id, state, workshop_status, comment,
+        created_at, accepted_at, delivered_at, skipped_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [o.id, o.qty, o.pricePer, o.pickup, o.pickupLat, o.pickupLng,
+       o.workshopId || null, o.workshopAddress || '', o.workshopLat, o.workshopLng,
+       o.clientId, o.carrierId || null, o.state, o.workshopStatus, o.comment || '',
+       o.createdAt, o.acceptedAt || null, o.deliveredAt || null,
+       JSON.stringify(o.skippedBy || [])]
+    );
+  }
+  for (const m of db.messages) {
+    await client.query(
+      'INSERT INTO messages (id, order_id, from_user, text, ts, price_chip) VALUES ($1,$2,$3,$4,$5,$6)',
+      [m.id, m.orderId, m.from, m.text, m.ts, !!m.priceChip]
+    );
+  }
+  for (const nt of db.notifications) {
+    await client.query(
+      'INSERT INTO notifications (id, user_id, text, order_id, ts, is_read) VALUES ($1,$2,$3,$4,$5,$6)',
+      [nt.id, nt.userId, nt.text, nt.orderId || null, nt.ts, !!nt.read]
+    );
+  }
+  for (const p of db.positions) {
+    await client.query(
+      'INSERT INTO positions (order_id, lat, lng, speed, ts) VALUES ($1,$2,$3,$4,$5)',
+      [p.orderId, p.lat, p.lng, p.speed == null ? null : p.speed, p.ts]
+    );
+  }
+  for (const addr of Object.keys(db.geoCache)) {
+    const g = db.geoCache[addr];
+    await client.query(
+      'INSERT INTO geo_cache (address, lat, lng) VALUES ($1,$2,$3)',
+      [addr, g ? g.lat : null, g ? g.lng : null]
+    );
+  }
+}
+
+async function withRequest(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    try {
+      await client.query('SELECT pg_advisory_xact_lock($1)', [LOCK_KEY]);
+    } catch (e) {
+      // СУБД без advisory-блокировок — продолжаем без неё
+    }
+    await ensureSchema(client);
+    await loadState(client);
+    dirty = false;
+    const result = await fn();
+    if (dirty) await syncState(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (e) {}
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { get, save, saveSync, withRequest, getPool, _setPool };

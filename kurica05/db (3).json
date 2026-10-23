@@ -1,0 +1,235 @@
+'use strict';
+/* Смоук-тест реального API: регистрация трёх ролей, заказ, приёмка, чат, уведомления.
+   SMS и почта работают в console-режиме, чтобы не тратить баланс. */
+
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+const PORT = 3999;
+const BASE = 'http://127.0.0.1:' + PORT;
+const DATA_DIR = path.join(__dirname, 'tmp-data');
+
+function clean() {
+  fs.rmSync(DATA_DIR, { recursive: true, force: true });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  // предзаполненный кеш геокодера — тест не ходит в сеть Nominatim
+  fs.writeFileSync(path.join(DATA_DIR, 'db.json'), JSON.stringify({
+    users: [], codes: [], sessions: [], orders: [], messages: [],
+    notifications: [], positions: [],
+    geoCache: {
+      'Москва, ул. Ленина, 24': { lat: 55.75, lng: 37.61 }
+    },
+    meta: { version: 1 }
+  }));
+}
+
+function req(method, p, body, cookie) {
+  return fetch(BASE + p, {
+    method,
+    headers: Object.assign({ 'Content-Type': 'application/json' }, cookie ? { cookie } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  }).then(async (res) => {
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    return { status: res.status, data, cookie: res.headers.get('set-cookie') || '' };
+  });
+}
+
+const results = [];
+function check(name, cond, extra) {
+  results.push((cond ? 'PASS' : 'FAIL') + ' | ' + name + (extra ? ' | ' + extra : ''));
+}
+
+async function waitServer(proc) {
+  for (let i = 0; i < 50; i++) {
+    try {
+      const r = await fetch(BASE + '/api/meta');
+      if (r.ok) return true;
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return false;
+}
+
+async function register(phone, profile) {
+  const c1 = await req('POST', '/api/auth/code', { channel: 'sms', phone });
+  if (!c1.data.devCode) throw new Error('нет devCode: ' + JSON.stringify(c1.data));
+  const v1 = await req('POST', '/api/auth/verify', { channel: 'sms', phone, code: c1.data.devCode });
+  if (!(v1.status === 422 && v1.data.needProfile)) throw new Error('ожидали needProfile, получили ' + v1.status + ' ' + JSON.stringify(v1.data));
+  const v2 = await req('POST', '/api/auth/verify', {
+    channel: 'sms', phone, code: c1.data.devCode, profile
+  });
+  if (v2.status !== 200) throw new Error('verify: ' + JSON.stringify(v2.data));
+  const cookie = v2.cookie.split(';')[0];
+  return { cookie, user: v2.data.user };
+}
+
+async function main() {
+  clean();
+  const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env: Object.assign({}, process.env, {
+      PORT: String(PORT),
+      SMS_PROVIDER: 'console',
+      EMAIL_PROVIDER: 'console',
+      DATA_DIR,
+      NODE_NAME: 'КУРОВОЗ-ТЕСТ'
+    }),
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  proc.stdout.on('data', () => {});
+  proc.stderr.on('data', (d) => process.stderr.write('[server] ' + d));
+
+  try {
+    const up = await waitServer(proc);
+    check('server up', up);
+    if (!up) throw new Error('сервер не поднялся');
+
+    // meta
+    const meta = await req('GET', '/api/meta');
+    check('meta: sms console enabled', meta.data.smsEnabled === true);
+    check('meta: email console enabled', meta.data.emailEnabled === true);
+
+    // авторизованного нет
+    const un = await req('GET', '/api/orders');
+    check('401 без сессии', un.status === 401);
+
+    // регистрация клиента
+    const client = await register('79001112233', {
+      name: 'Иван Клиентов', bank: 'Т-Банк', card: '2200123456789012',
+      recipient: 'ИВАН КЛИЕНТОВ', role: 'client', address: ''
+    });
+    check('register client', client.user.role === 'client' && client.user.phone.includes('900'), client.user.phone);
+
+    // регистрация перевозчика
+    const carrier = await register('79002223344', {
+      name: 'Марат Перевозов', bank: 'Сбербанк', card: '5469111122223333',
+      recipient: 'МАРАТ ПЕРЕВОЗОВ', role: 'carrier', address: ''
+    });
+    check('register carrier', carrier.user.role === 'carrier');
+
+    // регистрация цеха
+    const shop = await register('79003334455', {
+      name: 'Цех на Ленина', bank: 'ВТБ', card: '4000555566667777',
+      recipient: 'ООО ЧИСТЫЙ ЦЕХ', role: 'workshop', address: 'Москва, ул. Ленина, 24'
+    });
+    check('register workshop', shop.user.role === 'workshop' && !!shop.user.address);
+
+    // список цехов
+    const wsList = await req('GET', '/api/workshops', null, client.cookie);
+    check('workshops visible', wsList.data.workshops.length === 1, 'count=' + wsList.data.workshops.length);
+
+    // заказ (с координатами, чтобы ETA можно было посчитать без геокодера)
+    const ord = await req('POST', '/api/orders', {
+      qty: 120, pricePer: 15,
+      pickup: 'Москва, ул. Ленина, 24',
+      pickupLat: 55.75, pickupLng: 37.61,
+      workshopId: shop.user.id,
+      comment: 'Тестовый заказ'
+    }, client.cookie);
+    check('order created', ord.status === 200 && ord.data.order && ord.data.order.state === 'awaiting_carrier',
+      ord.data.order ? ord.data.order.id : JSON.stringify(ord.data));
+    const orderId = ord.data.order.id;
+    check('order total computed', ord.data.order.total === 1800, String(ord.data.order.total));
+
+    // перевозчик видит входящие
+    const cin = await req('GET', '/api/orders', null, carrier.cookie);
+    const incoming = (cin.data.orders || []).filter(o => o.state === 'awaiting_carrier');
+    check('carrier sees incoming', incoming.length === 1, 'count=' + incoming.length);
+    check('incoming shows client phone', !!(incoming[0] && incoming[0].client && incoming[0].client.phone));
+
+    // клиентский заказ не должен приходить другим клиентам
+    const client2 = await register('79004445566', {
+      name: 'Пётр Другой', bank: 'Альфа', card: '1111222233334444',
+      recipient: 'ПЁТР', role: 'client', address: ''
+    });
+    const c2o = await req('GET', '/api/orders', null, client2.cookie);
+    check('other client sees no foreign active order',
+      !(c2o.data.orders || []).some(o => o.id === orderId && o.myRole !== 'client'));
+
+    // переводчик принимает заказ
+    const acc = await req('POST', `/api/orders/${orderId}/accept`, {}, carrier.cookie);
+    check('carrier accepts', acc.status === 200 && acc.data.order.state === 'to_pickup', JSON.stringify(acc.data.order && acc.data.order.state));
+
+    // повторное принятие вторым перевозчиком — нельзя
+    const carrier2 = await register('79005556677', {
+      name: 'Второй Водитель', bank: 'Т-Банк', card: '2200999988887777',
+      recipient: 'ВТОРОЙ', role: 'carrier', address: ''
+    });
+    const acc2 = await req('POST', `/api/orders/${orderId}/accept`, {}, carrier2.cookie);
+    check('second carrier blocked', acc2.status === 409, String(acc2.status));
+
+    // позиция перевозчика → ETA
+    const pos = await req('POST', `/api/orders/${orderId}/position`, { lat: 55.70, lng: 37.55, speed: 42 }, carrier.cookie);
+    check('position accepted', pos.status === 200, JSON.stringify(pos.data));
+    const afterPos = await req('GET', '/api/orders', null, client.cookie);
+    const oPos = (afterPos.data.orders || []).find(o => o.id === orderId);
+    check('eta computed from position', typeof oPos.etaMin === 'number', 'eta=' + oPos.etaMin);
+    check('position visible to client', !!oPos.position);
+
+    // статусы
+    const st1 = await req('POST', `/api/orders/${orderId}/status`, { state: 'in_transit' }, carrier.cookie);
+    check('status in_transit', st1.status === 200 && st1.data.order.state === 'in_transit');
+    const st2 = await req('POST', `/api/orders/${orderId}/status`, { state: 'arrived' }, carrier.cookie);
+    check('status arrived', st2.status === 200 && st2.data.order.state === 'arrived');
+
+    // чат: перевозчик пишет, клиент видит
+    const msg1 = await req('POST', `/api/orders/${orderId}/messages`, { text: 'Груз готовлюсь, 15 ₽ за курицу устраивает?' }, carrier.cookie);
+    check('carrier message ok', msg1.status === 200);
+    const msgs = await req('GET', `/api/orders/${orderId}/messages`, null, client.cookie);
+    check('client sees message', (msgs.data.messages || []).some(m => m.text.includes('15 ₽')), 'count=' + (msgs.data.messages || []).length);
+    const msg2 = await req('POST', `/api/orders/${orderId}/messages`, { text: 'Давайте 18 ₽', priceChip: true }, client.cookie);
+    check('price message with chip', msg2.status === 200);
+    const msgs2 = await req('GET', `/api/orders/${orderId}/messages`, null, carrier.cookie);
+    check('priceChip flag delivered', (msgs2.data.messages || []).some(m => m.priceChip && m.text.includes('18 ₽')));
+
+    // чужой пользователь не лезет в чат
+    const foreign = await req('GET', `/api/orders/${orderId}/messages`, null, client2.cookie);
+    check('foreign chat blocked', foreign.status === 403, String(foreign.status));
+
+    // уведомления клиента
+    const notif = await req('GET', '/api/notifications', null, client.cookie);
+    check('client notifications exist', (notif.data.notifications || []).length >= 3,
+      'count=' + (notif.data.notifications || []).length);
+
+    // цех принимает партию
+    const wAcc = await req('POST', `/api/orders/${orderId}/workshop`, { decision: 'accept' }, shop.cookie);
+    check('workshop accepts → done', wAcc.status === 200 && wAcc.data.order.state === 'done',
+      JSON.stringify(wAcc.data.order && wAcc.data.order.state));
+
+    // регистрация по e-mail
+    const em = await req('POST', '/api/auth/code', { channel: 'email', email: 'test@example.com' });
+    check('email code sent', em.status === 200 && !!em.data.devCode);
+    const emv = await req('POST', '/api/auth/verify', {
+      channel: 'email', email: 'test@example.com', code: em.data.devCode,
+      profile: { name: 'Почтовый Клиент', bank: 'Т-Банк', card: '2200123400009999', recipient: 'ПОЧТОВЫЙ', role: 'client' }
+    });
+    check('email registration', emv.status === 200 && emv.data.user.email === 'test@example.com');
+
+    // rate limit
+    const r1 = await req('POST', '/api/auth/code', { channel: 'sms', phone: '79007778899' });
+    const r2 = await req('POST', '/api/auth/code', { channel: 'sms', phone: '79007778899' });
+    check('code rate-limited', r1.status === 200 && r2.status === 429, r1.status + '/' + r2.status);
+
+    // неверный код
+    const bad = await req('POST', '/api/auth/verify', { channel: 'sms', phone: '79007778899', code: '0000' });
+    check('wrong code rejected', bad.status === 400);
+
+    // профиль: обновление
+    const upd = await req('PUT', '/api/me', { name: 'Иван Обновлёнов', bank: 'Т-Банк', card: '2200123456789012', recipient: 'ИВАН', role: 'client' }, client.cookie);
+    check('profile updated', upd.status === 200 && upd.data.user.name === 'Иван Обновлёнов');
+  } catch (err) {
+    check('scenario crash', false, err.message);
+  } finally {
+    proc.kill('SIGTERM');
+    setTimeout(() => { try { proc.kill('SIGKILL'); } catch (e) {} }, 2000);
+  }
+
+  console.log(results.join('\n'));
+  const failed = results.filter(r => r.startsWith('FAIL'));
+  console.log('---');
+  console.log('SUMMARY:', results.length - failed.length, 'passed,', failed.length, 'failed');
+  process.exit(failed.length ? 1 : 0);
+}
+
+main();

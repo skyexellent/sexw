@@ -1,0 +1,118 @@
+'use strict';
+/* Регресс-тест сценария: регистрация → выход → повторный вход (та же ошибка, что у пользователя).
+   Плюс проверка Bearer-токена сессии. */
+
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+const PORT = 3997;
+const BASE = 'http://127.0.0.1:' + PORT;
+const DATA_DIR = path.join(__dirname, 'tmp-data-login');
+
+function req(method, p, body, cookie, token) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (cookie) headers.Cookie = cookie;
+  if (token) headers.Authorization = 'Bearer ' + token;
+  return fetch(BASE + p, { method, headers, body: body ? JSON.stringify(body) : undefined })
+    .then(async (res) => {
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      return { status: res.status, data, cookie: res.headers.get('set-cookie') || '' };
+    });
+}
+
+const results = [];
+function check(name, cond, extra) {
+  results.push((cond ? 'PASS' : 'FAIL') + ' | ' + name + (extra ? ' | ' + extra : ''));
+}
+
+async function waitServer() {
+  for (let i = 0; i < 50; i++) {
+    try { const r = await fetch(BASE + '/api/meta'); if (r.ok) return true; } catch (e) {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+  return false;
+}
+
+async function main() {
+  fs.rmSync(DATA_DIR, { recursive: true, force: true });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+
+  const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    env: Object.assign({}, process.env, {
+      PORT: String(PORT), SMS_PROVIDER: 'console', EMAIL_PROVIDER: 'console', DATA_DIR
+    }),
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  proc.stderr.on('data', d => process.stderr.write('[server] ' + d));
+
+  try {
+    check('server up', await waitServer());
+
+    // 1. регистрация
+    const phone = '79001230000';
+    const c1 = await req('POST', '/api/auth/code', { channel: 'sms', phone });
+    const v1 = await req('POST', '/api/auth/verify', { channel: 'sms', phone, code: c1.data.devCode });
+    check('first verify asks profile', v1.status === 422 && v1.data.needProfile === true, JSON.stringify(v1.data));
+    const v2 = await req('POST', '/api/auth/verify', {
+      channel: 'sms', phone, code: c1.data.devCode,
+      profile: { name: 'Возврат Пользователь', bank: 'Т-Банк', card: '2200123456789012', recipient: 'ВОЗВРАТ', role: 'client' }
+    });
+    check('registration ok', v2.status === 200 && v2.data.isNew === true, JSON.stringify(v2.data));
+    check('verify returns session token', typeof v2.data.token === 'string' && v2.data.token.length > 20, typeof v2.data.token);
+    const cookie1 = v2.cookie.split(';')[0];
+    const token = v2.data.token;
+
+    // аккаунт реально в базе
+    const meByCookie = await req('GET', '/api/me', null, cookie1);
+    check('me by cookie', meByCookie.status === 200 && meByCookie.data.user.name === 'Возврат Пользователь', JSON.stringify(meByCookie.data));
+    const meByToken = await req('GET', '/api/me', null, null, token);
+    check('me by bearer token', meByToken.status === 200 && meByToken.data.user.name === 'Возврат Пользователь');
+
+    // 2. выход
+    const lo = await req('POST', '/api/auth/logout', {}, cookie1);
+    check('logout ok', lo.status === 200);
+    const afterLogout = await req('GET', '/api/me', null, cookie1, token);
+    check('session dead after logout', afterLogout.status === 401, String(afterLogout.status));
+
+    // 3. ПОВТОРНЫЙ ВХОД — тот же сценарий, что у пользователя
+    const c2 = await req('POST', '/api/auth/code', { channel: 'sms', phone });
+    check('login: new code sent', c2.status === 200 && !!c2.data.devCode, JSON.stringify(c2.data));
+    const v3 = await req('POST', '/api/auth/verify', { channel: 'sms', phone, code: c2.data.devCode });
+    check('login: verify for existing user', v3.status === 200 && v3.data.isNew === false, JSON.stringify(v3.data));
+    check('login: same user returned', v3.data.user && v3.data.user.name === 'Возврат Пользователь', JSON.stringify(v3.data.user));
+    const cookie2 = v3.cookie.split(';')[0];
+    const me2 = await req('GET', '/api/me', null, cookie2);
+    check('login: session works', me2.status === 200 && me2.data.user.name === 'Возврат Пользователь', JSON.stringify(me2.data));
+
+    // вход по токену из ответа verify (без cookie)
+    const v4code = await req('POST', '/api/auth/code', { channel: 'sms', phone });
+    // повторный код в ту же минуту — 429, поэтому ниже проверим токен из старого v3
+    const me3 = await req('GET', '/api/me', null, null, v3.data.token);
+    check('login: bearer from verify', me3.status === 200);
+
+    // 4. существующий email-канал
+    const ec = await req('POST', '/api/auth/code', { channel: 'email', email: 'back@example.com' });
+    const ev = await req('POST', '/api/auth/verify', {
+      channel: 'email', email: 'back@example.com', code: ec.data.devCode,
+      profile: { name: 'Почта Возврат', bank: 'ВТБ', card: '4000123456789012', recipient: 'ПОЧТА', role: 'carrier' }
+    });
+    check('email registration', ev.status === 200 && ev.data.isNew === true);
+    const ec2 = await req('POST', '/api/auth/code', { channel: 'email', email: 'back@example.com' });
+    check('email re-login code (may rate-limit)', ec2.status === 200 || ec2.status === 429, String(ec2.status));
+  } catch (err) {
+    check('scenario crash', false, err.message);
+  } finally {
+    proc.kill('SIGTERM');
+    setTimeout(() => { try { proc.kill('SIGKILL'); } catch (e) {} }, 1500);
+  }
+
+  console.log(results.join('\n'));
+  const failed = results.filter(r => r.startsWith('FAIL'));
+  console.log('---');
+  console.log('SUMMARY:', results.length - failed.length, 'passed,', failed.length, 'failed');
+  process.exit(failed.length ? 1 : 0);
+}
+
+main();
